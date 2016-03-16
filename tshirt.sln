@@ -1,0 +1,51 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tshirt.Web", "tshirt\tshirt.Web.csproj", "{2755202B-D7AB-4749-BA95-0B3DFA0CCE9C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PublishScripts", "PublishScripts", "{505300AB-9D03-4E02-A1E1-B20F2BC2311D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scripts", "Scripts", "{885497DC-9B3E-428B-9645-BD25F58C483C}"
+	ProjectSection(SolutionItems) = preProject
+		PublishScripts\Scripts\Deploy-AzureResourceGroup.ps1 = PublishScripts\Scripts\Deploy-AzureResourceGroup.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{F198D200-F62A-466A-9CC7-5F5806CC6CFA}"
+	ProjectSection(SolutionItems) = preProject
+		PublishScripts\Templates\tshirt.json = PublishScripts\Templates\tshirt.json
+		PublishScripts\Templates\tshirt.param.dev.json = PublishScripts\Templates\tshirt.param.dev.json
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tshirt.Data", "tshirt.Data\tshirt.Data.csproj", "{AC000EAB-9E51-4F4D-AB73-6B0D828344C9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tshirt.Resources", "tshirt.Resources\tshirt.Resources.csproj", "{1551B501-FE7D-4C67-8574-422489A746B7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2755202B-D7AB-4749-BA95-0B3DFA0CCE9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2755202B-D7AB-4749-BA95-0B3DFA0CCE9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2755202B-D7AB-4749-BA95-0B3DFA0CCE9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2755202B-D7AB-4749-BA95-0B3DFA0CCE9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC000EAB-9E51-4F4D-AB73-6B0D828344C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC000EAB-9E51-4F4D-AB73-6B0D828344C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC000EAB-9E51-4F4D-AB73-6B0D828344C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC000EAB-9E51-4F4D-AB73-6B0D828344C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1551B501-FE7D-4C67-8574-422489A746B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1551B501-FE7D-4C67-8574-422489A746B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1551B501-FE7D-4C67-8574-422489A746B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1551B501-FE7D-4C67-8574-422489A746B7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{885497DC-9B3E-428B-9645-BD25F58C483C} = {505300AB-9D03-4E02-A1E1-B20F2BC2311D}
+		{F198D200-F62A-466A-9CC7-5F5806CC6CFA} = {505300AB-9D03-4E02-A1E1-B20F2BC2311D}
+	EndGlobalSection
+EndGlobal
