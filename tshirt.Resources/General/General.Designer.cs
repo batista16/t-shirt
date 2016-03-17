@@ -68,5 +68,7 @@ namespace tshirt.Resources.General {
                 return ResourceManager.GetString("DesignAndSell", resourceCulture);
             }
         }
+
+        public static object Designer { get; set; }
     }
 }

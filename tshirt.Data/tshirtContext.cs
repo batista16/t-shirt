@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNet.Identity.EntityFramework;
+﻿using System.Data.Entity;
+using System.Data.Entity.ModelConfiguration.Conventions;
+using Microsoft.AspNet.Identity.EntityFramework;
 using tshirt.Data.Models;
 
 namespace tshirt.Data
@@ -9,8 +11,20 @@ namespace tshirt.Data
         {
         }
 
+
+        public DbSet<ProductType> ProductTypes { get; set; }
+        public DbSet<ProductDesign> ProductDesigns { get; set; }
+        public DbSet<ProductColors>ProductColors  { get; set; }
+
         public static TshirtContext Create() {
             return new TshirtContext();
+        }
+
+        protected override void OnModelCreating(DbModelBuilder modelBuilder)
+        {
+
+            modelBuilder.Conventions.Remove<PluralizingTableNameConvention>();
+            base.OnModelCreating(modelBuilder);
         }
     }
 }

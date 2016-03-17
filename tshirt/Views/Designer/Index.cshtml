@@ -1,0 +1,13 @@
+﻿@using tshirt.Resources.General
+@model List<tshirt.Data.Models.ProductType>
+
+@{
+    ViewBag.Title = General.Designer;
+}
+
+<h2>@General.Designer</h2>
+
+@foreach (var type in Model)
+{
+    @type.Name
+}
