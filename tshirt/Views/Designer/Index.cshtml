@@ -1,5 +1,5 @@
 ﻿@using tshirt.Resources.General
-@model List<tshirt.Data.Models.ProductType>
+@model IEnumerable<tshirt.Data.Models.ProductType>
 
 @{
     ViewBag.Title = General.Designer;
@@ -10,4 +10,5 @@
 @foreach (var type in Model)
 {
     @type.Name
+    <br/>
 }

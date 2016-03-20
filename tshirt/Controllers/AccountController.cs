@@ -6,7 +6,7 @@ using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
 using Microsoft.Owin.Security;
 using tshirt.Data.Models;
-using tshirt.Web.Models;
+using tshirt.Web.ViewModels;
 
 namespace tshirt.Web.Controllers
 {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace tshirt.Data.Models
 {
@@ -13,5 +14,8 @@ namespace tshirt.Data.Models
 
         public string CreatedById { get; set; }
         public virtual ApplicationUser CreatedBy { get; set; }
+
+        public ICollection<ProductDesignElement> ProductDesignElements { get; set; }
+
     }
 }

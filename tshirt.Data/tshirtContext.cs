@@ -9,11 +9,13 @@ namespace tshirt.Data
         public TshirtContext()
             : base("tshirtdb", throwIfV1Schema: false)
         {
+            this.Configuration.LazyLoadingEnabled = false;
         }
 
 
         public DbSet<ProductType> ProductTypes { get; set; }
         public DbSet<ProductDesign> ProductDesigns { get; set; }
+        public DbSet<ProductDesignElement> ProductDesignElements { get; set; }
         public DbSet<ProductColors>ProductColors  { get; set; }
 
         public static TshirtContext Create() {

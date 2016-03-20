@@ -29,6 +29,15 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'ACC|AnyCPU'">
+    <OutputPath>bin\ACC\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.dll</HintPath>
@@ -61,10 +70,15 @@
     <Compile Include="Migrations\201603172325148_initial.Designer.cs">
       <DependentUpon>201603172325148_initial.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201603192047010_m.cs" />
+    <Compile Include="Migrations\201603192047010_m.Designer.cs">
+      <DependentUpon>201603192047010_m.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\ApplicationUser.cs" />
     <Compile Include="Models\ProductColors.cs" />
     <Compile Include="Models\ProductDesign.cs" />
+    <Compile Include="Models\ProductDesignElement.cs" />
     <Compile Include="Models\ProductType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TshirtContext.cs" />
@@ -76,6 +90,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\201603172325148_initial.resx">
       <DependentUpon>201603172325148_initial.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201603192047010_m.resx">
+      <DependentUpon>201603192047010_m.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
