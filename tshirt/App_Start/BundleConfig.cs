@@ -1,27 +1,50 @@
 ﻿using System.Web.Optimization;
+using BundleTransformer.Core.Builders;
+using BundleTransformer.Core.Orderers;
+using BundleTransformer.Core.Resolvers;
+using BundleTransformer.Core.Transformers;
 
-namespace tshirt.Web {
-    public class BundleConfig {
+namespace tshirt.Web
+{
+    public class BundleConfig
+    {
         // For more information on bundling, visit http://go.microsoft.com/fwlink/?LinkId=301862
-        public static void RegisterBundles(BundleCollection bundles) {
-            bundles.Add(new ScriptBundle("~/bundles/jquery").Include(
-                        "~/Scripts/jquery-{version}.js"));
+        public static void RegisterBundles(BundleCollection bundles)
+        {
+            var nullBuilder = new NullBuilder();
+            var styleTransformer = new StyleTransformer();
+            var scriptTransformer = new ScriptTransformer();
+            var nullOrderer = new NullOrderer();
 
-            bundles.Add(new ScriptBundle("~/bundles/jqueryval").Include(
-                        "~/Scripts/jquery.validate*"));
+            BundleResolver.Current = new CustomBundleResolver();
+            var commonStylesBundle = new Bundle("~/Bundles/CommonStyles");
+            commonStylesBundle.IncludeDirectory("~/css/","*.css",true);
+            commonStylesBundle.IncludeDirectory("~/css/","*.scss",true);
+            commonStylesBundle.Builder = nullBuilder;
+            commonStylesBundle.Transforms.Add(styleTransformer);
+            commonStylesBundle.Orderer = nullOrderer;
+            bundles.Add(commonStylesBundle);
 
-            // Use the development version of Modernizr to develop with and learn from. Then, when you're
-            // ready for production, use the build tool at http://modernizr.com to pick only the tests you need.
-            bundles.Add(new ScriptBundle("~/bundles/modernizr").Include(
-                        "~/Scripts/modernizr-*"));
 
-            bundles.Add(new ScriptBundle("~/bundles/bootstrap").Include(
-                      "~/Scripts/bootstrap.js",
-                      "~/Scripts/respond.js"));
+            var modernizrBundle = new Bundle("~/Bundles/Modernizr");
+            modernizrBundle.Include("~/Scripts/modernizr-*");
+            modernizrBundle.Builder = nullBuilder;
+            modernizrBundle.Transforms.Add(scriptTransformer);
+            modernizrBundle.Orderer = nullOrderer;
+            bundles.Add(modernizrBundle);
 
-            bundles.Add(new StyleBundle("~/Content/css").Include(
-                      "~/Content/bootstrap.css",
-                      "~/Content/site.css"));
+
+            var commonScriptsBundle = new Bundle("~/Bundles/CommonScripts");
+            commonScriptsBundle.Include(
+                "~/Scripts/jquery-{version}.js",
+                "~/Scripts/jquery.validate*",
+                "~/Scripts/bootstrap.js",
+                "~/Scripts/respond.js"
+                );
+            commonStylesBundle.Builder = nullBuilder;
+            commonScriptsBundle.Transforms.Add(scriptTransformer);
+            commonScriptsBundle.Orderer = nullOrderer;
+            bundles.Add(commonScriptsBundle);
         }
     }
 }
