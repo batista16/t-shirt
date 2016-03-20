@@ -79,6 +79,15 @@ namespace tshirt.Resources.General {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SelectProductColor.
+        /// </summary>
+        public static string SelectProductColor {
+            get {
+                return ResourceManager.GetString("SelectProductColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to SelectProductType.
         /// </summary>
         public static string SelectProductType {

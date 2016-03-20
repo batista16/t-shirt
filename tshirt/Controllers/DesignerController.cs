@@ -1,22 +1,23 @@
-﻿using System.Linq;
-using System.Web.Mvc;
+﻿using System.Web.Mvc;
 using tshirt.BusinessManagers.Tshirt;
-using tshirt.Data;
+using tshirt.Web.ViewModels;
 
 namespace tshirt.Web.Controllers {
-    public class DesignerController : BaseController
-    {
+    public class DesignerController : BaseController {
         protected readonly ITshitBusinessManager TshitBm;
 
-        public DesignerController(ITshitBusinessManager tshitBm)
-        {
+        public DesignerController(ITshitBusinessManager tshitBm) {
             TshitBm = tshitBm;
         }
 
-        public ActionResult Index()
-        {
-            var styles = TshitBm.GetProductTypes();
-            return View(styles);
+        public ActionResult Index() {
+            return View(CreateDesignerVm());
+        }
+
+        private DesignerVm CreateDesignerVm() {
+            return new DesignerVm() {
+                ProductTypes = TshitBm.GetProductTypes()
+            };
         }
     }
 }

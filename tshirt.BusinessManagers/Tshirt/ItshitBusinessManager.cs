@@ -5,6 +5,6 @@ namespace tshirt.BusinessManagers.Tshirt
 {
     public interface ITshitBusinessManager
     {
-        IEnumerable<ProductType> GetProductTypes();
+        IEnumerable<ProductType> GetProductTypes(bool includeDisabled=false);
     }
 }

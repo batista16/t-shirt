@@ -1,5 +1,5 @@
 ﻿@using tshirt.Resources.General
-@model IEnumerable<tshirt.Data.Models.ProductType>
+@model tshirt.Web.ViewModels.DesignerVm
 
 @{
     ViewBag.Title = General.Designer;
@@ -9,20 +9,32 @@
 
     <h5>@General.SelectProductType</h5>
     <div class="productTypeBlock">
-        @foreach (var type in Model)
+        @foreach (var type in Model.ProductTypes)
         {
-            <div class="productType">
+            <div class="productType" data-id="@type.Id">
                 <img class="image" src="~/css/img/defaultShirt.png"/>
                 <div class="name">@type.Name</div>
 
             </div>
         }
     </div>
+    <h5>@General.SelectProductColor</h5>
+
+    @foreach (var type in Model.ProductTypes) {
+        <div class="productColorBlock" data-type="@type.Id">
+            @foreach (var col in type.ProductColors) {
+                <div class="productColor">
+                    <div class="color" style="background-color: #@col.Hex"></div>
+                    <div class="name">@col.Name</div>
+                </div>
+            }
+        </div>
+    }
 </div>
 
 @section Scripts{
     <script type="text/javascript">
-        $(function() {
+        $(function () {
             var designerHandler = new Tshirt.Designer.DesignerHandler();
         })
     </script>

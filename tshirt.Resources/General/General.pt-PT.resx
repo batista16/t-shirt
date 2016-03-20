@@ -120,6 +120,9 @@
   <data name="DesignAndSell" xml:space="preserve">
     <value>Desenhar e vender</value>
   </data>
+  <data name="SelectProductColor" xml:space="preserve">
+    <value>Seleccione a cor do produto</value>
+  </data>
   <data name="SelectProductType" xml:space="preserve">
     <value>Começe por escolher o produto</value>
   </data>
