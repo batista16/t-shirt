@@ -68,7 +68,23 @@ namespace tshirt.Resources.General {
                 return ResourceManager.GetString("DesignAndSell", resourceCulture);
             }
         }
-
-        public static object Designer { get; set; }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Designer.
+        /// </summary>
+        public static string Designer {
+            get {
+                return ResourceManager.GetString("Designer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SelectProductType.
+        /// </summary>
+        public static string SelectProductType {
+            get {
+                return ResourceManager.GetString("SelectProductType", resourceCulture);
+            }
+        }
     }
 }

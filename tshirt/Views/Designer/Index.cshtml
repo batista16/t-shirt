@@ -4,12 +4,26 @@
 @{
     ViewBag.Title = General.Designer;
 }
+<div class="productDesigner">
+    <h4>@General.Designer</h4>
 
-<h2>@General.Designer</h2>
+    <h5>@General.SelectProductType</h5>
+    <div class="productTypeBlock">
+        @foreach (var type in Model)
+        {
+            <div class="productType">
+                <img class="image" src="~/css/img/defaultShirt.png"/>
+                <div class="name">@type.Name</div>
 
-@foreach (var type in Model)
-{
-    <div class="productType">
-        @type.Name
+            </div>
+        }
     </div>
+</div>
+
+@section Scripts{
+    <script type="text/javascript">
+        $(function() {
+            var designerHandler = new Tshirt.Designer.DesignerHandler();
+        })
+    </script>
 }

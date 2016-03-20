@@ -120,4 +120,10 @@
   <data name="DesignAndSell" xml:space="preserve">
     <value>Design and sell</value>
   </data>
+  <data name="Designer" xml:space="preserve">
+    <value>Designer</value>
+  </data>
+  <data name="SelectProductType" xml:space="preserve">
+    <value>SelectProductType</value>
+  </data>
 </root>

@@ -1,0 +1,38 @@
+﻿.productDesigner {
+    .productTypeBlock {
+        display: flex;
+        justify-content: center;
+
+        .productType {
+            border: 1px solid lightgrey;
+            margin: 5px;
+            display: flex;
+            flex-direction: column;
+            width: 140px;
+            overflow: hidden;
+            cursor: pointer;
+
+            .name {
+                text-align: center;
+                margin: 5px 0;
+            }
+
+            .image {
+                width: 100%;
+                background-color: $primary-color;
+                transition: opacity linear 0.2s;
+
+                &:hover {
+                    opacity: 0.7;
+                    transition: opacity linear 0.2s;
+                }
+
+            }
+
+            .selected{
+                background-color: #00aa90;
+
+            }
+        }
+    }
+}

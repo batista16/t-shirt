@@ -120,4 +120,7 @@
   <data name="DesignAndSell" xml:space="preserve">
     <value>Desenhar e vender</value>
   </data>
+  <data name="SelectProductType" xml:space="preserve">
+    <value>Começe por escolher o produto</value>
+  </data>
 </root>

@@ -18,8 +18,8 @@ namespace tshirt.Web
 
             BundleResolver.Current = new CustomBundleResolver();
             var commonStylesBundle = new Bundle("~/Bundles/CommonStyles");
-            commonStylesBundle.IncludeDirectory("~/css/","*.css",true);
-            commonStylesBundle.IncludeDirectory("~/css/","*.scss",true);
+            commonStylesBundle.IncludeDirectory("~/css/lib/","*.css",true);
+            commonStylesBundle.Include("~/css/styles.scss");
             commonStylesBundle.Builder = nullBuilder;
             commonStylesBundle.Transforms.Add(styleTransformer);
             commonStylesBundle.Orderer = nullOrderer;
@@ -41,6 +41,7 @@ namespace tshirt.Web
                 "~/Scripts/bootstrap.js",
                 "~/Scripts/respond.js"
                 );
+            commonScriptsBundle.IncludeDirectory("~/Scripts/Tshirt/", "*.js", true);
             commonStylesBundle.Builder = nullBuilder;
             commonScriptsBundle.Transforms.Add(scriptTransformer);
             commonScriptsBundle.Orderer = nullOrderer;
