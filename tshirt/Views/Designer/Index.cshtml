@@ -9,10 +9,9 @@
 
     <h5>@General.SelectProductType</h5>
     <div class="productTypeBlock">
-        @foreach (var type in Model.ProductTypes)
-        {
+        @foreach (var type in Model.ProductTypes) {
             <div class="productType" data-id="@type.Id">
-                <img class="image" src="~/css/img/defaultShirt.png"/>
+                <img class="image" src="~/css/img/defaultShirt.png" />
                 <div class="name">@type.Name</div>
 
             </div>
@@ -30,7 +29,12 @@
             }
         </div>
     }
+
+    <div id="designerPaper"></div>
 </div>
+
+<div id="holder" style="height: 100%;"></div>
+
 
 @section Scripts{
     <script type="text/javascript">

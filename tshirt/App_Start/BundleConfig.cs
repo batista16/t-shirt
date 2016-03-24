@@ -39,7 +39,10 @@ namespace tshirt.Web
                 "~/Scripts/jquery-{version}.js",
                 "~/Scripts/jquery.validate*",
                 "~/Scripts/bootstrap.js",
-                "~/Scripts/respond.js"
+                "~/Scripts/respond.js",
+
+                "~/Scripts/raphael-min.js",
+                "~/Scripts/raphael.free_transform.js"
                 );
             commonScriptsBundle.IncludeDirectory("~/Scripts/Tshirt/", "*.js", true);
             commonStylesBundle.Builder = nullBuilder;
