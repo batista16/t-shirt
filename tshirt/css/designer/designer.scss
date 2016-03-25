@@ -65,10 +65,22 @@
         }
     }
 
-    #designerPaper {
+    .designerWrapper {
         background-image: url("/css/img/defaultShirt.png");
         background-position: 50% 50%;
         background-size: contain;
-        background-repeat:no-repeat;
+        background-repeat: no-repeat;
+        height: calc( 100vh - 100px ); //Replace with variable for total usable area (100vh-header-footer)
+        #designerPaper {
+            width: 250px;
+            height: 450px;
+            position: relative;
+            top: 115px;
+            margin: 0 auto;
+
+            svg {
+                border: 1px solid;
+            }
+        }
     }
 }

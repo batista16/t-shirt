@@ -5,7 +5,7 @@
     ViewBag.Title = General.Designer;
 }
 <div class="productDesigner">
-    <h4>@General.Designer</h4>
+    @*<h4>@General.Designer</h4>
 
     <h5>@General.SelectProductType</h5>
     <div class="productTypeBlock">
@@ -28,14 +28,11 @@
                 </div>
             }
         </div>
-    }
-
-    <div id="designerPaper"></div>
+    }*@
+    <div class="designerWrapper">
+        <div id="designerPaper"></div>
+    </div>
 </div>
-
-<div id="holder" style="height: 100%;"></div>
-
-
 @section Scripts{
     <script type="text/javascript">
         $(function () {
