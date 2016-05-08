@@ -30,9 +30,21 @@ module Tshirt.Designer {
         }
 
         private initDesignerPaper() {
-            this.paper = Raphael("designerPaper",null,null,null);
-            var ro = this.paper.image("http://i.imgur.com/3NFMPJx.jpg", 10, 10, 100, 100);
+            var paperWidth = $("#designerPaper").width();
+            var paperHeight = $("#designerPaper").height();
+            var printableWidth = paperWidth / 2.4;
+            var printableHeight = (printableWidth / 2) * 3;
+            this.paper = Raphael("designerPaper", null, null, null);
+            var printableArea = this.paper.rect(
+                (paperWidth / 2) - (printableWidth / 2),
+                (paperHeight / 2) - (printableHeight / 2),
+                printableWidth,
+                printableHeight, 0);
+
+
+            var ro = this.paper.image("https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/718smiley.svg/1200px-718smiley.svg.png", (paperWidth / 2) - 50, (paperHeight / 2)-50, 100, 100);
             this.paper.freeTransform(ro);
+            printableArea.toFront();
         }
     }
 

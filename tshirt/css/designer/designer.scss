@@ -1,4 +1,6 @@
 ﻿.productDesigner {
+    position: relative;
+
     .productTypeBlock {
         display: flex;
         justify-content: center;
@@ -66,20 +68,51 @@
     }
 
     .designerWrapper {
-        background-image: url("/css/img/defaultShirt.png");
-        background-position: 50% 50%;
-        background-size: contain;
-        background-repeat: no-repeat;
-        height: calc( 100vh - 100px ); //Replace with variable for total usable area (100vh-header-footer)
-        #designerPaper {
-            width: 250px;
-            height: 450px;
-            position: relative;
-            top: 115px;
+        .designer-bg {
+            background-image: url("/css/img/defaultShirt.png");
+            background-position: 50% 50%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            width: 480px;
+            height: 600px;
+            position: absolute;
             margin: 0 auto;
+            left:0;
+            right:0;
+
+        }
+
+        #designerPaper {
+            /*width: 200px; //proporção tem de ser a mesma de 30*45cm
+            height: 300px;*/
+            width: 480px;
+            height: 600px;
+            position: absolute;
+            margin: 0 auto;
+            left:0;
+            right:0;
 
             svg {
-                border: 1px solid;
+            }
+        }
+
+        .rightMenu{
+            position:absolute;
+            margin:5px;
+            width:100px;
+            height:100%;
+            top:0;
+            right:0;
+            .btn{
+                border:1px solid lightGray;
+                width:35px;
+                height:35px;
+            }
+            .addImage{
+                background-image:url("http://findicons.com/icon/download/97195/image_add/48/png");
+                background-position: 50% 50%;
+                background-size:contain;
+                background-repeat:no-repeat;
             }
         }
     }

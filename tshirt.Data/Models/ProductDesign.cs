@@ -16,6 +16,6 @@ namespace tshirt.Data.Models
         public virtual ApplicationUser CreatedBy { get; set; }
 
         public ICollection<ProductDesignElement> ProductDesignElements { get; set; }
-
+        
     }
 }
