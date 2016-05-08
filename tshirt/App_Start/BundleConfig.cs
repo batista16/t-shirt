@@ -42,7 +42,11 @@ namespace tshirt.Web
                 "~/Scripts/respond.js",
 
                 "~/Scripts/raphael-min.js",
-                "~/Scripts/raphael.free_transform.js"
+                "~/Scripts/raphael.free_transform.js",
+
+                "~/Scripts/fabric.min.js",
+                "~/Scripts/FancyProductDesigner-all.js"
+
                 );
             commonScriptsBundle.IncludeDirectory("~/Scripts/Tshirt/", "*.js", true);
             commonStylesBundle.Builder = nullBuilder;

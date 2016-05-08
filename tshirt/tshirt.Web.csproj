@@ -270,6 +270,7 @@
     <Content Include="css\img\defaultShirt.png" />
     <Content Include="css\lib\bootstrap\bootstrap-theme.css" />
     <Content Include="css\lib\bootstrap\bootstrap.css" />
+    <Content Include="css\lib\fpd\FancyProductDesigner-all.min.css" />
     <Content Include="favicon.ico" />
     <Content Include="fonts\glyphicons-halflings-regular.svg" />
     <Content Include="Global.asax" />
@@ -292,6 +293,8 @@
     <None Include="Properties\PublishProfiles\t-shirt.pubxml" />
     <Content Include="Scripts\bootstrap.js" />
     <Content Include="Scripts\bootstrap.min.js" />
+    <Content Include="Scripts\fabric.min.js" />
+    <Content Include="Scripts\FancyProductDesigner-all.js" />
     <Content Include="Scripts\jquery-2.2.1.js" />
     <Content Include="Scripts\jquery-2.2.1.min.js" />
     <None Include="Scripts\jquery.validate-vsdoc.js" />
@@ -307,6 +310,9 @@
     <Content Include="Scripts\respond.matchmedia.addListener.min.js" />
     <Content Include="Scripts\respond.min.js" />
     <Content Include="Scripts\_references.js" />
+    <Content Include="css\lib\fpd\templates\canvaserror.html" />
+    <Content Include="css\lib\fpd\templates\instagram_auth.html" />
+    <Content Include="css\lib\fpd\templates\productdesigner.html" />
     <Content Include="Web.config" />
     <Content Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
@@ -343,6 +349,7 @@
     <Content Include="Views\Shared\_LoginPartial.cshtml" />
     <Content Include="Service References\Application Insights\ConnectedService.json" />
     <Content Include="Scripts\jquery-2.2.1.min.map" />
+    <Content Include="Views\Designer\Index_Raphaelo.cshtml" />
     <Content Include="Views\Designer\Index.cshtml" />
     <None Include="Web.ACC.config">
       <DependentUpon>Web.config</DependentUpon>

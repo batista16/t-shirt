@@ -5,43 +5,25 @@
     ViewBag.Title = General.Designer;
 }
 <div class="productDesigner">
-    @*<h4>@General.Designer</h4>
-
-        <h5>@General.SelectProductType</h5>
-        <div class="productTypeBlock">
-            @foreach (var type in Model.ProductTypes) {
-                <div class="productType" data-id="@type.Id">
-                    <img class="image" src="~/css/img/defaultShirt.png" />
-                    <div class="name">@type.Name</div>
-
-                </div>
-            }
-        </div>
-        <h5>@General.SelectProductColor</h5>
-
-        @foreach (var type in Model.ProductTypes) {
-            <div class="productColorBlock" data-type="@type.Id">
-                @foreach (var col in type.ProductColors) {
-                    <div class="productColor">
-                        <div class="color" style="background-color: #@col.Hex"></div>
-                        <div class="name">@col.Name</div>
-                    </div>
-                }
+    <div id="fpd">
+        @foreach (var pro in Model.ProductTypes) {
+            <div class="fpd-product" title="@pro.Name" data-thumbnail="PREVIEW.png">
+                <img src="~/css/img/defaultShirt.png" title="@pro.Name" data-parameters='{"x": 100, "y": 200, "colors": "#D5D5D5", "price": 20}' />
+                <span title="TITLE_FOR_TEXT" data-parameters='{"x": 150, "y": 250, "removable": true, "draggable": true, "rotatable": true, "resizable": true, "colors": "#000000,#ffffff,#990000"}'>Default Text</span>
             </div>
-        }*@
-    <div class="designerWrapper">
-        <div class="designer-bg"></div>
-        <div id="designerPaper"></div>
-        <div class="rightMenu">
-            <div class="btn addImage">
-            </div>
-        </div>
+        }
+        <!-- Here you can add more product divs -->
     </div>
 </div>
 @section Scripts{
     <script type="text/javascript">
         $(function () {
-            var designerHandler = new Tshirt.Designer.DesignerHandler();
+            var options = {
+                langJSON: false,
+                templatesDirectory: '/css/lib/fpd/templates/',
+                //templatesType: ''
+            };
+            var fancyProductDesigner = new FancyProductDesigner($('#fpd'),options);
         })
     </script>
 }

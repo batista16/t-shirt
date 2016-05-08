@@ -37,7 +37,7 @@ var Tshirt;
             DesignerHandler.productTypeSel = ".productType";
             DesignerHandler.productColorBlockSel = ".productColorBlock";
             return DesignerHandler;
-        })();
+        }());
         Designer.DesignerHandler = DesignerHandler;
     })(Designer = Tshirt.Designer || (Tshirt.Designer = {}));
 })(Tshirt || (Tshirt = {}));

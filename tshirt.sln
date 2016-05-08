@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tshirt.Web", "tshirt\tshirt.Web.csproj", "{2755202B-D7AB-4749-BA95-0B3DFA0CCE9C}"
 EndProject
@@ -23,6 +23,11 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tshirt.Resources", "tshirt.Resources\tshirt.Resources.csproj", "{1551B501-FE7D-4C67-8574-422489A746B7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tshirt.BusinessManagers", "tshirt.BusinessManagers\tshirt.BusinessManagers.csproj", "{A1C9C3C4-F069-4572-BFCA-33EE9744C62D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{27381C7C-26F7-433B-8EE3-7CB4B710E0AC}"
+	ProjectSection(SolutionItems) = preProject
+		Sources\codecanyon-3581183-fancy-product-designer-jquery-plugin.zip = Sources\codecanyon-3581183-fancy-product-designer-jquery-plugin.zip
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
