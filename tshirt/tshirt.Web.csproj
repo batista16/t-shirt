@@ -271,6 +271,12 @@
     <Content Include="css\lib\bootstrap\bootstrap-theme.css" />
     <Content Include="css\lib\bootstrap\bootstrap.css" />
     <Content Include="css\lib\fpd\FancyProductDesigner-all.min.css" />
+    <Content Include="css\lib\fpd\FancyProductDesigner.css" />
+    <Content Include="css\lib\fpd\plugins.min.css" />
+    <Content Include="css\lib\fpd\static.min.css" />
+    <Content Include="css\lib\jquery-ui\jquery-ui.css" />
+    <Content Include="css\lib\jquery-ui\jquery-ui.structure.css" />
+    <Content Include="css\lib\jquery-ui\jquery-ui.theme.css" />
     <Content Include="favicon.ico" />
     <Content Include="fonts\glyphicons-halflings-regular.svg" />
     <Content Include="Global.asax" />
@@ -298,6 +304,7 @@
     <Content Include="Scripts\jquery-2.2.1.js" />
     <Content Include="Scripts\jquery-2.2.1.min.js" />
     <None Include="Scripts\jquery.validate-vsdoc.js" />
+    <Content Include="Scripts\jquery-ui.js" />
     <Content Include="Scripts\jquery.validate.js" />
     <Content Include="Scripts\jquery.validate.min.js" />
     <Content Include="Scripts\jquery.validate.unobtrusive.js" />

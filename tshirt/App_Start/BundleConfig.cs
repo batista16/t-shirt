@@ -38,6 +38,7 @@ namespace tshirt.Web
             commonScriptsBundle.Include(
                 "~/Scripts/jquery-{version}.js",
                 "~/Scripts/jquery.validate*",
+                "~/Scripts/jquery-ui.js",
                 "~/Scripts/bootstrap.js",
                 "~/Scripts/respond.js",
 

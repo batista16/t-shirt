@@ -631,10 +631,11 @@ fabric.Object.prototype._drawControl = function(control, ctx, methodName, left, 
 	if (this.isControlVisible(control)) {
 
 		var wh = this._calculateCurrentDimensions(),
-          	width = wh.x;
+          	width = wh.x,
+          	height = wh.y;
 
 		var icon = false;
-		if (control == 'br' || control == 'mtr' || control == 'tl' || control == 'bl') {
+		if (control == 'br' || control == 'mtr' || control == 'tl' || control == 'bl' || control == 'ml' || control == 'mr') {
 			switch (control) {
 
 				case 'tl': //copy
@@ -657,6 +658,16 @@ fabric.Object.prototype._drawControl = function(control, ctx, methodName, left, 
 					top = top + offset - offsetCorner;
 					icon = this.__editorMode || this.removable ? String.fromCharCode('0xe926') : false;
 					break;
+				case 'ml': //unproportional scaling on x
+					left = left - offset + offsetCorner;
+					top = (top / 2) - iconOffset;
+					icon = this.__editorMode ? String.fromCharCode('0xe92e') : false;
+					break;
+				case 'mr': //unproportional scaling on x
+					left = left + offset - offsetCorner;
+					top = (top / 2) - iconOffset;
+					icon = this.__editorMode ? String.fromCharCode('0xe92d') : false;
+					break;
 			}
 
 		}
@@ -670,7 +681,6 @@ fabric.Object.prototype._drawControl = function(control, ctx, methodName, left, 
 			ctx.textAlign = 'left';
 			ctx.textBaseline = 'top';
 			ctx.fillText(icon, left+iconOffset, top+iconOffset);
-			ctx[methodName](left, top, size, size);
 		}
 	}
 };
@@ -802,7 +812,76 @@ fabric.Canvas.prototype._getRotatedCornerCursor = function(corner, target, e) {
 	  break;
   }
   return this.cursorMap[n];
-}
+};
+
+// https://jsfiddle.net/jojobyte/3j352toh/1/
+fabric.Textbox.prototype._wrapLine = function(ctx, text, lineIndex) {
+	var lineWidth        = 0,
+		lines            = [],
+		line             = '',
+		words            = text.split(' '),
+		word             = '',
+		letter           = '',
+		offset           = 0,
+		infix            = ' ',
+		wordWidth        = 0,
+		infixWidth       = 0,
+		letterWidth      = 0,
+		largestWordWidth = 0;
+
+	for (var i = 0; i < words.length; i++) {
+		word = words[i];
+		wordWidth = this._measureText(ctx, word, lineIndex, offset);
+		lineWidth += infixWidth;
+
+		// Break Words if wordWidth is greater than textbox width
+		if (wordWidth > this.width) {
+			line += infix;
+			var wordLetters = word.split('');
+			while (wordLetters.length) {
+				letterWidth = this._getWidthOfChar(ctx, wordLetters[0], lineIndex, offset);
+				if (lineWidth + letterWidth > this.width) {
+					lines.push(line);
+					line = '';
+					lineWidth = 0;
+				}
+				line += wordLetters.shift();
+				offset++;
+				lineWidth += letterWidth;
+			}
+			word = '';
+		} else {
+			lineWidth += wordWidth;
+		}
+
+		if (lineWidth >= this.width && line !== '') {
+			lines.push(line);
+			line = '';
+			lineWidth = wordWidth;
+		}
+
+		if (line !== '' || i === 1) {
+			line += infix;
+		}
+		line += word;
+		offset += word.length;
+		infixWidth = this._measureText(ctx, infix, lineIndex, offset);
+		offset++;
+
+		//FPD: keep track of largest word
+		/*if (wordWidth > largestWordWidth && !this.breakWords) {
+			largestWordWidth = wordWidth;
+		}*/
+	}
+
+	i && lines.push(line);
+
+	if (largestWordWidth > this.dynamicMinWidth) {
+		this.dynamicMinWidth = largestWordWidth;
+	}
+
+	return lines;
+};
 
 /**
  * A class with some static helper functions. You do not need to initiate the class, just call the methods directly, e.g. FPDUtil.isIE();
@@ -1017,7 +1096,7 @@ var FPDUtil =  {
 	 */
 	getType : function(fabricType) {
 
-		if(fabricType === 'text' || fabricType === 'i-text' || fabricType === 'curvedText') {
+		if(fabricType === 'text' || fabricType === 'i-text' || fabricType === 'curvedText' || fabricType === 'textbox') {
 			return 'text';
 		}
 		else {
@@ -1178,20 +1257,28 @@ var FPDUtil =  {
 	showMessage : function(text) {
 
 		var $body = $('body'),
-			$snackbar;
+			$snackbarWrapper;
 
-		if($body.children('.fpd-snackbar-internal').size() > 0) {
-			$snackbar = $body.children('.fpd-snackbar');
+		if($body.children('.fpd-snackbar-wrapper').size() > 0) {
+			$snackbarWrapper = $body.children('.fpd-snackbar-wrapper');
 		}
 		else {
-			$snackbar = $body.append('<div class="fpd-snackbar-internal fpd-snackbar fpd-shadow-1"><p></p></div>').children('.fpd-snackbar-internal');
+			$snackbarWrapper = $body.append('<div class="fpd-snackbar-wrapper"></div>').children('.fpd-snackbar-wrapper');
 		}
 
-		$snackbar.removeClass('fpd-show-up').children('p').html(text).parent().addClass('fpd-show-up');
+		var $snackbar = $('<div class="fpd-snackbar fpd-shadow-1"><p></p></div>');
+		$snackbar.children('p').html(text);
+		$snackbar.appendTo($snackbarWrapper);
 
 		setTimeout(function() {
-			$snackbar.removeClass('fpd-show-up');
-		}, 5000);
+
+			$snackbar.addClass('fpd-show-up');
+
+			setTimeout(function() {
+				$snackbar.remove();
+			}, 5000);
+
+		}, 10);
 
 	},
 
@@ -1343,7 +1430,7 @@ var FPDUtil =  {
 		}
 
 
-		return scaling.toFixed(2);
+		return parseFloat(scaling.toFixed(2));
 
 	},
 
@@ -1565,15 +1652,6 @@ var FancyProductDesignerOptions = function() {
 		* @default 'templates/'
 		*/
 		templatesDirectory: 'html/',
-		/**
-		* An array with image URLs that are used for text patterns.
-		*
-		* @property patterns
-		* @for FancyProductDesignerOptions.defaults
-		* @type {String}
-		* @default []
-		*/
-		patterns: [],
 		/**
 		* To add photos from Facebook, you have to set your own Facebook API key.
 		*
@@ -1895,6 +1973,7 @@ var FancyProductDesignerOptions = function() {
 		* @property uploadZonesTopped
 		* @for FancyProductDesignerOptions.defaults
 		* @type {Boolean}
+		* @default true
 		*/
 		uploadZonesTopped: true,
 		/**
@@ -1903,6 +1982,7 @@ var FancyProductDesignerOptions = function() {
 		* @property loadFirstProductInStage
 		* @for FancyProductDesignerOptions.defaults
 		* @type {Boolean}
+		* @default true
 		*/
 		loadFirstProductInStage: true,
 		/**
@@ -1911,8 +1991,44 @@ var FancyProductDesignerOptions = function() {
 		* @property unsavedProductAlert
 		* @for FancyProductDesignerOptions.defaults
 		* @type {Boolean}
+		* @default false
 		*/
 		unsavedProductAlert: false,
+		/**
+		* If the user adds something and off-canvas panel or dialog is opened, it will be closed.
+		*
+		* @property hideDialogOnAdd
+		* @for FancyProductDesignerOptions.defaults
+		* @type {Boolean}
+		* @default false
+		*/
+		hideDialogOnAdd: false,
+		/**
+		* Set the placement of the toolbar. Possible values: 'dynamic', 'inside-bottom', 'inside-top'
+		*
+		* @property toolbarPlacement
+		* @for FancyProductDesignerOptions.defaults
+		* @type {String}
+		* @default 'dynamic'
+		*/
+		toolbarPlacement: 'dynamic',
+		/**
+		* The grid size for snap action. First value defines the width on the a-axis, the second on the y-axis.
+		*
+		* @property snapGridSize
+		* @for FancyProductDesignerOptions.defaults
+		* @type {Array}
+		* @default [50, 50]
+		*/
+		snapGridSize: [50, 50],
+		/**
+		* An object containing <a href="http://fabricjs.com/docs/fabric.Canvas.html" target="_blank">options for the fabricjs canvas</a>.
+		*
+		* @property fabricCanvasOptions
+		* @for FancyProductDesignerOptions.defaults
+		* @type {Object}
+		*/
+		fabricCanvasOptions: {},
 		/**
 		* An object containing the default element parameters in addition to the <a href="http://fabricjs.com/docs/fabric.Object.html" target="_blank">default Fabric Object properties</a>. See <a href="./FancyProductDesignerOptions.defaults.elementParameters.html">FancyProductDesignerOptions.defaults.elementParameters</a>.
 		*
@@ -2086,6 +2202,16 @@ var FancyProductDesignerOptions = function() {
 			* @example 'my-color-group'
 			*/
 			colorLinkGroup: false,
+			/**
+			* An array of URLs to pattern image - onyl for SVG images or text elements.
+			*
+			* @property patterns
+			* @type {Array}
+			* @for FancyProductDesignerOptions.defaults.elementParameters
+			* @default []
+			* @example patterns: ['patterns/pattern_1.png', 'patterns/pattern_2.png',]
+			*/
+			patterns: [],
 			originX: 'center',
 			originY: 'center',
 			cornerSize: 24,
@@ -2099,7 +2225,7 @@ var FancyProductDesignerOptions = function() {
 			flipY: false,
 			opacity: 1,
 			scaleX: 1,
-			scaleY: 1,
+			scaleY: 1
 		},
 		/**
 		* An object containing the default text element parameters in addition to the <a href="http://fabricjs.com/docs/fabric.IText.html" target="_blank">default Fabric IText properties</a>. See <a href="./FancyProductDesignerOptions.defaults.textParameters.html">FancyProductDesignerOptions.defaults.textParameters</a>. The properties in the object will merge with the properties in the elementParameters.
@@ -2109,15 +2235,6 @@ var FancyProductDesignerOptions = function() {
 		* @type {Object}
 		*/
 		textParameters: {
-			/**
-			* If true the user can set a pattern for the text element.
-			*
-			* @property patternable
-			* @type {Boolean}
-			* @for FancyProductDesignerOptions.defaults.textParameters
-			* @default false
-			*/
-			patternable: false,
 			/**
 			* The maximal allowed characters. 0 means unlimited characters.
 			*
@@ -2181,6 +2298,15 @@ var FancyProductDesignerOptions = function() {
 			* @default 0
 			*/
 			maxLines: 0,
+			/**
+			* Enables the text element as a text box. A text box has a fixed width and not be resized.
+			*
+			* @property textBox
+			* @type {Boolean}
+			* @for FancyProductDesignerOptions.defaults.textParameters
+			* @default false
+			*/
+			textBox: 0,
 			editable: true,
 			fontFamily: "Arial",
 			fontSize: 18,
@@ -2434,13 +2560,14 @@ var FancyProductDesignerOptions = function() {
  * @param {jQuery} elem - jQuery object holding the container.
  * @param {Object} view - The default options for the view.
  * @param {Function} callback - This function will be called as soon as the view and all initial elements are loaded.
+ * @param {Object} fabricjsCanvasOptions - Options for the fabricjs canvas.
  */
-var FancyProductDesignerView = function($productStage, view, callback) {
+var FancyProductDesignerView = function($productStage, view, callback, fabricCanvasOptions) {
+
+	fabricCanvasOptions = typeof fabricCanvasOptions === 'undefined' ? {} : fabricCanvasOptions;
 
 	var $this = $(this),
 		instance = this,
-		grabStartPointer,
-		viewportPosition = new fabric.Point(0, 0),
 		mouseDownStage = false,
 		initialElementsLoaded = false,
 		tempModifiedParameters = null,
@@ -2535,10 +2662,10 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 		 */
 		instance.currentBoundingObject = null;
 		/**
-		 * The current selected upload zone.
+		 * The title of the current selected upload zone.
 		 *
 		 * @property currentUploadZone
-		 * @type fabric.Object
+		 * @type String
 		 * @default null
 		 */
 		instance.currentUploadZone = null;
@@ -2571,6 +2698,9 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		$this.on('elementAdd', function(evt, element){
 
+			//price handler in custom elementAdd function, not in object:added, because its not working with replaceInitialElements and upload zones
+
+
 			//check for other topped elements
 			_bringToppedElementsToFront();
 
@@ -2582,21 +2712,33 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 		});
 
 		//create fabric stage
-		var canvas = $productStage.children('canvas:last').get(0);
-		instance.stage = new fabric.Canvas(canvas, {
-			containerClass: 'fpd-view-stage fpd-hidden',
-			selection: false,
-			hoverCursor: 'pointer',
-			controlsAboveOverlay: true,
-			centeredScaling: true,
-		}).on({
+		var canvas = $productStage.children('canvas:last').get(0),
+			canvasOptions = $.extend({}, {
+				containerClass: 'fpd-view-stage fpd-hidden',
+				selection: false,
+				hoverCursor: 'pointer',
+				controlsAboveOverlay: true,
+				centeredScaling: true,
+				allowTouchScrolling: true
+			}, fabricCanvasOptions);
+
+		instance.stage = new fabric.Canvas(canvas, canvasOptions).on({
 			'object:added': function(opts) {
 
-				var element = opts.target;
+				var element = opts.target,
+					price = element.price;
 
-				if(element.price !== undefined && element.price !== 0 && !element.uploadZone) {
+				//if element is addded into upload zone, use upload zone price if one is set
+				if((instance.currentUploadZone && instance.currentUploadZone != '')) {
 
-					instance.totalPrice += element.price;
+					var uploadZoneObj = instance.getElementByTitle(instance.currentUploadZone);
+					price = uploadZoneObj.price ? uploadZoneObj.price : price;
+
+				}
+
+				if(price !== undefined && price !== 0 && !element.uploadZone && element.type !== 'rect') {
+
+					instance.totalPrice += price;
 					element.setCoords();
 
 					/**
@@ -2607,7 +2749,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 				     * @param {number} elementPrice - The price of the element.
 				     * @param {number} totalPrice - The total price.
 				     */
-					$this.trigger('priceChange', [element.price, instance.totalPrice]);
+					$this.trigger('priceChange', [price, instance.totalPrice]);
 				}
 
 			},
@@ -2625,20 +2767,6 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		instance.stage.setDimensions({width: instance.options.stageWidth, height: instance.options.stageHeight});
 
-		//retina-ready
-		if( window.devicePixelRatio !== 1 ){
-
-		    var htmlCanvas = instance.stage.getElement();
-
-		    // Scale the canvas up by two for retina
-		    htmlCanvas.setAttribute('width', instance.options.stageWidth * window.devicePixelRatio);
-		    htmlCanvas.setAttribute('height', instance.options.stageHeight * window.devicePixelRatio);
-
-		    // finally set the scale of the context
-		    htmlCanvas.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
-
-		}
-
 	};
 
 	var _afterSetup = function() {
@@ -2653,7 +2781,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 				var $target = $(evt.target);
 
-				if(instance.currentElement && !$target.is('textarea,input[type="text"]')) {
+				if(instance.currentElement && !$target.is('textarea,input[type="text"],input[type="number"]')) {
 
 					switch(evt.which) {
 						case 8:
@@ -2717,7 +2845,6 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			},
 			'mouse:down': function(opts) {
 
-				grabStartPointer = instance.stage.getPointer(opts.e);
 				mouseDownStage = true;
 
 				if(opts.target == undefined) {
@@ -2761,11 +2888,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 				if(mouseDownStage && instance.dragStage) {
 
-					var currentPointer = instance.stage.getPointer(opts.e),
-						x = (viewportPosition.x + currentPointer.x - grabStartPointer.x),
-						y = (viewportPosition.y + currentPointer.y - grabStartPointer.y);
-
-					instance.stage.relativePan(new fabric.Point(x, y));
+					instance.stage.relativePan(new fabric.Point(opts.e.movementX, opts.e.movementY));
 
 				}
 
@@ -2819,7 +2942,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 				if(FPDUtil.getType(opts.target.type) === 'text' && opts.target.type !== 'curvedText') {
 
 					opts.target.fontSize *= opts.target.scaleX;
-		            opts.target.fontSize = Number(Number(opts.target.fontSize).toFixed(0));
+		            opts.target.fontSize = parseFloat(Number(opts.target.fontSize).toFixed(0));
 		            opts.target.scaleX = 1;
 		            opts.target.scaleY = 1;
 		            opts.target._clearCache();
@@ -2837,11 +2960,11 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 						break;
 						case 'scaling':
 							if(FPDUtil.getType(opts.target.type) === 'text' && opts.target.type !== 'curvedText') {
-								modifiedParameters.fontSize = Number(opts.target.fontSize);
+								modifiedParameters.fontSize = parseInt(opts.target.fontSize);
 							}
 							else {
-								modifiedParameters.scaleX = Number(opts.target.scaleX);
-								modifiedParameters.scaleY = Number(opts.target.scaleY);
+								modifiedParameters.scaleX = parseFloat(opts.target.scaleX);
+								modifiedParameters.scaleY = parseFloat(opts.target.scaleY);
 							}
 						break;
 						case 'rotating':
@@ -2865,6 +2988,8 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			},
 			'object:selected': function(opts) {
 
+				var selectedElement = opts.target;
+
 				instance.deselectElement(false);
 
 				//dont select anything when in dragging mode
@@ -2873,8 +2998,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 					return false;
 				}
 
-				instance.currentElement = opts.target;
-
+				instance.currentElement = selectedElement;
 
 				/**
 			     * Gets fired as soon as an element is selected.
@@ -2883,20 +3007,19 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			     * @param {Event} event
 			     * @param {fabric.Object} currentElement - The current selected element.
 			     */
-				$this.trigger('elementSelect', [instance.currentElement]);
+				$this.trigger('elementSelect', [selectedElement]);
 
-
-				instance.currentElement.setControlVisible('tr', false);
-				instance.currentElement.set({
+				selectedElement.setControlVisible('tr', false);
+				selectedElement.set({
 					borderColor: instance.options.selectedColor,
 					rotatingPointOffset: 0
 				});
 
 				//change cursor to move when element is draggable
-				instance.currentElement.draggable ? instance.stage.hoverCursor = 'move' : instance.stage.hoverCursor = 'pointer';
+				selectedElement.draggable ? instance.stage.hoverCursor = 'move' : instance.stage.hoverCursor = 'pointer';
 
 				//check for a boundingbox
-				if(instance.currentElement.boundingBox && !instance.options.editorMode) {
+				if(selectedElement.boundingBox && !instance.options.editorMode) {
 
 					var bbCoords = instance.getBoundingBoxCoords(opts.target);
 					if(bbCoords) {
@@ -2981,7 +3104,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		for(var i = 0; i < objects.length; ++i) {
 			var object = objects[i];
-			if((object.topped || object.uploadZone) && instance.options.uploadZonesTopped) {
+			if(object.topped || (object.uploadZone && instance.options.uploadZonesTopped)) {
 				bringToFrontObj.push(object);
 			}
 		}
@@ -3000,6 +3123,11 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		if(instance.currentBoundingObject) {
 			instance.currentBoundingObject.bringToFront();
+		}
+
+		var snapLinesGroup = instance.getElementByID('_snap_lines_group');
+		if(snapLinesGroup) {
+			snapLinesGroup.bringToFront();
 		}
 
 		instance.stage.renderAll();
@@ -3155,13 +3283,19 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			},
 			fontactive: function(familyName, fvd) {
 
-				$('body').mouseup();
+				//$('body').mouseup();
 				instance.stage.renderAll();
 
 				if(element) {
-					element.setFontSize(element._tempFontSize);
+
+					if(element._tempFontSize) {
+						element.setFontSize(element._tempFontSize);
+					}
+
 					element.setCoords();
 					instance.stage.renderAll();
+
+					element._tempFontSize = null;
 				}
 
 			}
@@ -3206,12 +3340,24 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 	};
 
-	//sets the pattern for an object
+	//sets the pattern for a svg image or text
 	var _setPattern = function(element, url) {
 
-		if(element.type == 'image') {
+		if(element.type == 'path-group') {
 
-			//todo: find proper solution
+			if(url) {
+				fabric.util.loadImage(url, function(img) {
+
+					for(var i=0; i < element.paths.length; ++i) {
+						element.paths[i].setFill(new fabric.Pattern({
+							source: img,
+							repeat: 'repeat'
+						}));
+					}
+
+					instance.stage.renderAll();
+				});
+			}
 
 		}
 		else if(FPDUtil.getType(element.type) === 'text') {
@@ -3438,6 +3584,9 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		if(type == 'image' || type == 'path' || type == 'path-group') {
 
+			var splitURLParams = source.split('?');
+			source = fabricParams.source = splitURLParams[0];
+
 			var _fabricImageLoaded = function(fabricImage, params, vectorImage, originParams) {
 
 				originParams = originParams === undefined ? {} : originParams;
@@ -3542,6 +3691,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 				originParams: $.extend({}, params)
 			});
 
+
 			//fix for correct boundary when using custom fonts
 			var tempFontSize = fabricParams.fontSize;
 			fabricParams._tempFontSize = tempFontSize;
@@ -3550,6 +3700,12 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			//make text curved
 			if(params.curved) {
 				var fabricText = new fabric.CurvedText(source, fabricParams);
+			}
+			//make text box
+			else if(params.textBox) {
+				fabricParams.lockUniScaling = false;
+				var fabricText = new fabric.Textbox(source, fabricParams);
+				fabricText.setControlVisible('bl', true);
 			}
 			//just interactive text
 			else {
@@ -3733,11 +3889,11 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 					autoCenter: true,
 					removable: true,
 					zChangeable: false,
-					autoSelect: true,
+					autoSelect: false,
 					rotatable: uploadZoneObj.rotatable,
 					draggable: uploadZoneObj.draggable,
 					resizable: uploadZoneObj.resizable,
-					price: uploadZoneObj.price,
+					price: uploadZoneObj.price ? uploadZoneObj.price : parameters.price,
 					replace: instance.currentUploadZone,
 					hasUploadZone: true
 				}
@@ -3752,13 +3908,14 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		//new element added
 		if(	typeof parameters.colors === 'object' ||
+			parameters.colors === true ||
+			parameters.colors === 1 ||
 			parameters.removable ||
 			parameters.draggable ||
 			parameters.resizable ||
 			parameters.rotatable ||
 			parameters.zChangeable ||
-			parameters.editable ||
-			parameters.patternable
+			parameters.editable
 			|| parameters.uploadZone
 			|| (parameters.colorLinkGroup && parameters.colorLinkGroup.length > 0)) {
 
@@ -3844,6 +4001,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 
 		//set filter
 		if(parameters.filter) {
+
 			element.filters = [];
 			var fabricFilter = _getFabircFilter(parameters.filter);
 			if(fabricFilter != null) {
@@ -3852,6 +4010,20 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			element.applyFilters(function() {
 				instance.stage.renderAll();
 			});
+
+			/*element.filters = [];
+
+			var fabricFilter = _getFabircFilter(parameters.filter);
+			if(fabricFilter != null) {
+				element.filters.push(fabricFilter);
+				element.filters.push(new fabric.Image.filters.Resize({
+		            resizeType: 'hermite', scaleX: element.scaleX, scaleY: element.scaleY
+		        }));
+			}
+			element.applyFilters(function() {
+				instance.stage.renderAll();
+			});*/
+
 		}
 
 		//clip element
@@ -3886,7 +4058,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 		}
 
 		if(element.uploadZone) {
-			element.evented = element.opacity === 1;
+			element.evented = element.opacity !== 0;
 		}
 
 		//check if a upload zone contains an object
@@ -3910,7 +4082,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 		_checkContainment(element);
 
 		//select element
-		if(parameters.autoSelect && element.isEditable && !instance.options.editorMode) {
+		if(parameters.autoSelect && element.isEditable && !instance.options.editorMode && $(instance.stage.getElement()).is(':visible')) {
 
 			setTimeout(function() {
 				instance.stage.setActiveObject(element);
@@ -3990,6 +4162,19 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 		options = typeof options !== 'undefined' ? options : {};
 		watermarkImg = typeof watermarkImg !== 'undefined' ? watermarkImg : false;
 
+		instance.stage.enableRetinaScaling = false;
+
+		var invisibleObjs = ['_snap_lines_group', '_ruler_hor', '_ruler_ver'],
+			hiddenObjs = [];
+
+		for(var i=0; i<invisibleObjs.length; ++i) {
+			var hiddenObj = instance.getElementByID(invisibleObjs[i]);
+			if(hiddenObj) {
+				hiddenObj.visible = false;
+				hiddenObjs.push(hiddenObj);
+			}
+		}
+
 		instance.deselectElement();
 		instance.stage.setDimensions({width: instance.options.stageWidth, height: instance.options.stageHeight}).setZoom(1);
 
@@ -4010,6 +4195,8 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 				_imageColorError();
 			}
 
+			instance.stage.enableRetinaScaling = true;
+
 			if(watermarkImg) {
 				instance.stage.remove(watermarkImg);
 			}
@@ -4021,6 +4208,10 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			instance.stage.setBackgroundColor('transparent', function() {
 				instance.stage.renderAll();
 			});
+
+			for(var i=0; i<hiddenObjs.length; ++i) {
+				hiddenObjs[i].visible = true;
+			}
 
 		});
 
@@ -4180,7 +4371,7 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 	this.resetCanvasSize = function() {
 
 		instance.responsiveScale = $productStage.outerWidth() < instance.options.stageWidth ? $productStage.outerWidth() / instance.options.stageWidth : 1;
-		instance.responsiveScale = Number(instance.responsiveScale.toFixed(2));
+		instance.responsiveScale = parseFloat(Number(instance.responsiveScale.toFixed(2)));
 		instance.responsiveScale = instance.responsiveScale > 1 ? 1 : instance.responsiveScale;
 
 		if(!instance.options.responsive) {
@@ -4256,6 +4447,8 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 			properties.push('text');
 		}
 
+		properties.push('width');
+		properties.push('height');
 		properties.push('isEditable');
 		properties.push('hasUploadZone');
 		properties.push('clippingRect');
@@ -4563,339 +4756,496 @@ var FancyProductDesignerView = function($productStage, view, callback) {
 var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 
 	var instance = this,
+		$body = $('body'),
 		$uiToolbarSub = $uiElementToolbar.children('.fpd-sub-panel'),
 		$colorPicker = $uiElementToolbar.find('.fpd-color-wrapper'),
 		$fontFamilyDropdown = $uiElementToolbar.find('.fpd-tool-font-family'),
-		colorDragging = false,
-		colorChanged = false; //fix for change event in spectrum
+		colorDragging = false;
 
 	this.isTransforming = false; //is true, while transforming via slider
+	this.placement = fpdInstance.mainOptions.toolbarPlacement;
 
-	//append toolbar to body
-	$('body').append($uiElementToolbar)
-	.mousedown(function(evt) { //check when transforming via slider
+	var _initialize = function() {
 
-		if($(evt.target).parents('.fpd-range-slider').length > 0) {
-			$(evt.target).parents('.fpd-range-slider').prev('input').change();
-			instance.isTransforming = true;
+		$uiElementToolbar.appendTo($body);
+		instance.setPlacement(instance.placement);
+
+		$body.on('mousedown touchstart', function(evt) { //check when transforming via slider
+
+			if($(evt.target).parents('.fpd-range-slider').length > 0) {
+				$(evt.target).parents('.fpd-range-slider').prev('input').change();
+				instance.isTransforming = true;
+			}
+
+		})
+		.on('mouseup touchend', function() {
+			instance.isTransforming = false;
+		});
+
+		//set max values
+		var maxValuesKeys = Object.keys(fpdInstance.mainOptions.maxValues);
+		for(var i=0; i < maxValuesKeys.length; ++i) {
+
+			var maxValueProp = maxValuesKeys[i];
+			$uiElementToolbar.find('[data-control="'+maxValueProp+'"]').attr('max', fpdInstance.mainOptions.maxValues[maxValueProp]);
+
 		}
 
-	})
-	.mouseup(function() {
-		instance.isTransforming = false;
-	});
+		//first-level tools
+		$uiElementToolbar.find('.fpd-row > div').click(function() {
 
-	//set max values
-	var maxValuesKeys = Object.keys(fpdInstance.mainOptions.maxValues);
-	for(var i=0; i < maxValuesKeys.length; ++i) {
+			var $this = $(this);
 
-		var maxValueProp = maxValuesKeys[i];
-		$uiElementToolbar.find('[data-control="'+maxValueProp+'"]').attr('max', fpdInstance.mainOptions.maxValues[maxValueProp]);
+			$uiElementToolbar.find('.fpd-row > div').not($this).removeClass('fpd-active');
 
-	}
+			if($this.data('panel')) { //has a sub a panel
+
+				$this.tooltipster('hide');
+
+				$this.toggleClass('fpd-active'); //activate panel opener
+				$uiToolbarSub.toggle($this.hasClass('fpd-active')) //display sub wrapper, if opener is active
+				.children().removeClass('fpd-active') //hide all panels in sub wrapper
+				.filter('.fpd-panel-'+$this.data('panel')).addClass('fpd-active'); //display related panel
+
+				var element = fpdInstance.currentElement;
+				if($this.data('panel') == 'fill') {
+
+					if(FPDUtil.elementHasColorSelection(element)) {
+						if(element.colorLinkGroup) {
+							var availableColors = fpdInstance.colorLinkGroups[element.colorLinkGroup].colors;
+						}
+						else {
+							var availableColors = element.colors;
+						}
+
+						$colorPicker.children('input').spectrum('destroy');
+						$colorPicker.empty().removeClass('fpd-colorpicker-group');
+
+						//path (svg)
+						if(element.type == 'path-group') {
+
+							for(var i=0; i<element.paths.length; ++i) {
+								var path = element.paths[i],
+									color = tinycolor(path.fill);
+
+								$colorPicker.append('<input type="text" value="'+color.toHexString()+'" />');
+							}
+
+							$colorPicker.addClass('fpd-colorpicker-group').children('input').spectrum('destroy').spectrum({
+								showPaletteOnly: $.isArray(element.colors),
+								preferredFormat: "hex",
+								showInput: true,
+								showInitial: true,
+								showButtons: false,
+								showPalette: fpdInstance.mainOptions.colorPickerPalette && fpdInstance.mainOptions.colorPickerPalette.length > 0,
+								palette: $.isArray(element.colors) ? element.colors : fpdInstance.mainOptions.colorPickerPalette,
+								show: function(color) {
+
+									var svgColors = FPDUtil.changePathColor(
+										fpdInstance.currentElement,
+										$colorPicker.children('input').index(this),
+										color
+									);
+
+									element._tempFill = svgColors;
+
+								},
+								move: function(color) {
+
+									var svgColors = FPDUtil.changePathColor(
+										fpdInstance.currentElement,
+										$colorPicker.children('input').index(this),
+										color
+									);
+
+									fpdInstance.currentViewInstance.changeColor(fpdInstance.currentElement, svgColors);
+
+								},
+								change: function(color) {
+
+									var svgColors = FPDUtil.changePathColor(
+										element,
+										$colorPicker.children('input').index(this),
+										color
+									);
+
+									$(document).unbind("click.spectrum"); //fix, otherwise change is fired on every click
+									fpdInstance.currentViewInstance.setElementParameters({fill: svgColors}, element);
+
+								}
+							});
+
+						}
+						//color list
+						else if(availableColors.length > 1) {
+
+							$colorPicker.html('<div class="fpd-color-palette fpd-grid"></div>');
+
+							for(var i=0; i<availableColors.length; ++i) {
+
+								var color = availableColors[i];
+									colorName = fpdInstance.mainOptions.hexNames[color.replace('#', '')];
+
+								colorName = colorName ? colorName : color;
+								$colorPicker.children('.fpd-grid').append('<div class="fpd-item fpd-tooltip" title="'+colorName+'" style="background-color: '+color+';"></div>')
+								.children('.fpd-item:last').click(function() {
+									var color = tinycolor($(this).css('backgroundColor'));
+									fpdInstance.currentViewInstance.setElementParameters({fill: color.toHexString()});
+								});
+
+							}
+
+							FPDUtil.updateTooltip();
+
+						}
+						//colorwheel
+						else {
+
+							$colorPicker.html('<input type="text" value="'+(element.fill ? element.fill : availableColors[0])+'" />');
+
+							$colorPicker.children('input').spectrum({
+								flat: true,
+								preferredFormat: "hex",
+								showInput: true,
+								showInitial: true,
+								showPalette: fpdInstance.mainOptions.colorPickerPalette && fpdInstance.mainOptions.colorPickerPalette.length > 0,
+								palette: fpdInstance.mainOptions.colorPickerPalette,
+								show: function(color) {
+									element._tempFill = color.toHexString();
+								},
+								move: function(color) {
+
+									//only non-png images are chaning while dragging
+									if(colorDragging === false || FPDUtil.elementIsColorizable(element) !== 'png') {
+										_setElementColor(color.toHexString());
+									}
+
+								},
+								change: function(color) {
+
+									$(document).unbind("click.spectrum"); //fix, otherwise change is fired on every click
+									fpdInstance.currentViewInstance.setElementParameters({fill: color.toHexString()}, element);
+
+								}
+							})
+							.on('dragstart.spectrum', function() {
+								colorDragging = true;
+							})
+							.on('dragstop.spectrum', function(evt, color) {
+								colorDragging = false;
+								_setElementColor(color.toHexString());
+							});
+
+						}
+					}
+
+					//patterns
+					if((element.type === 'path-group' || FPDUtil.getType(element.type) === 'text') && element.patterns && element.patterns.length) {
+
+						$uiToolbarSub.find('.fpd-patterns > .fpd-grid').empty();
+						for(var i=0; i < element.patterns.length; ++i) {
+
+							var patternUrl = element.patterns[i];
+							$uiToolbarSub.find('.fpd-patterns > .fpd-grid').append('<div class="fpd-item" data-pattern="'+patternUrl+'"><picture style="background-image: url('+patternUrl+');"></picture></div>')
+							.children(':last').click(function() {
+
+								var patternUrl = $(this).data('pattern');
+								$uiElementToolbar.find('.fpd-current-fill').css('background', 'url('+patternUrl+')');
+								fpdInstance.currentViewInstance.setElementParameters( {pattern: patternUrl} );
 
 
-	//first-level tools
-	$uiElementToolbar.find('.fpd-row > div').click(function() {
+							});
 
-		var $this = $(this);
+						}
 
-		$uiElementToolbar.find('.fpd-row > div').not($this).removeClass('fpd-active');
+					}
 
-		if($this.data('panel')) { //has a sub a panel
+				}
+				else if($this.data('panel') == 'stroke') {
 
-			$this.tooltipster('hide');
+					//stroke color
+				    $uiToolbarSub.find('.fpd-stroke-color-picker input').spectrum('destroy').spectrum({
+						flat: true,
+						preferredFormat: "hex",
+						showInput: true,
+						showInitial: true,
+						showPalette: fpdInstance.mainOptions.colorPickerPalette && fpdInstance.mainOptions.colorPickerPalette.length > 0,
+						palette: fpdInstance.mainOptions.colorPickerPalette,
+						move: function(color) {
+							instance.isTransforming = true;
+							fpdInstance.currentViewInstance.setElementParameters( {stroke: color.toHexString()} );
 
-			$this.toggleClass('fpd-active'); //activate panel opener
-			$uiToolbarSub.toggle($this.hasClass('fpd-active')) //display sub wrapper, if opener is active
-			.children().removeClass('fpd-active') //hide all panels in sub wrapper
-			.filter('.fpd-panel-'+$this.data('panel')).addClass('fpd-active'); //display related panel
+						}
+					});
 
-			var pos = {
-				top: $this.parent('.fpd-row').position().top+$this.position().top+$this.outerHeight(true)
-			};
+				}
 
-			if($this.position().left > $uiElementToolbar.width() * .5) {
-				pos.right = 0;
-				pos.left = 'auto';
+				$uiToolbarSub.css({
+					top: $this.parent('.fpd-row').position().top+$this.position().top+$this.outerHeight(true),
+					left: $this.parent().position().left - 5
+				});
+
+				instance.updatePosition(fpdInstance.currentElement);
+
 			}
 			else {
-				pos.right = 'auto';
-				pos.left = 0;
+
+				$uiToolbarSub.hide();
+
 			}
 
-			$uiToolbarSub.css(pos);
+		});
+
+		//create range slider
+		$uiToolbarSub.find('.fpd-slider-range').rangeslider({
+			polyfill: false,
+			rangeClass: 'fpd-range-slider',
+			disabledClass: 'fpd-range-slider--disabled',
+			horizontalClass: 'fpd-range-slider--horizontal',
+		    verticalClass: 'fpd-range-slider--vertical',
+		    fillClass: 'fpd-range-slider__fill',
+		    handleClass: 'fpd-range-slider__handle',
+		    onSlide: function(pos, value) {
+
+			    if(instance.isTransforming) {
+
+				    this.$element.parent().prev('.fpd-slider-number').val(value).change();
+
+				    //proportional scaling
+				    if(this.$element.data('control') === 'scaleX' && fpdInstance.currentElement && fpdInstance.currentElement.lockUniScaling) {
+					    $uiToolbarSub.find('.fpd-slider-number[data-control="scaleY"]').val(value).change();
+				    }
+
+			    }
+
+		    },
+		    onSlideEnd: function() {
+
+			    instance.isTransforming = false;
+			    instance.updatePosition(fpdInstance.currentElement);
+
+		    }
+		});
+
+		//filters
+		$uiToolbarSub.find('.fpd-filters .fpd-item').click(function() {
+
+			var $this = $(this);
+			$uiElementToolbar.find('.fpd-current-fill').css('background', $this.children('picture').css('background-image'));
+			fpdInstance.currentViewInstance.setElementParameters( {filter: $this.data('filter')} );
+
+		});
+
+		//position
+		$uiToolbarSub.find('.fpd-panel-position .fpd-icon-button-group > span').click(function() {
+
+			var $this = $(this);
+			if($this.hasClass('fpd-align-left')) {
+				fpdInstance.currentViewInstance.alignElement('left');
+			}
+			else if($this.hasClass('fpd-align-top')) {
+				fpdInstance.currentViewInstance.alignElement('top');
+			}
+			else if($this.hasClass('fpd-align-right')) {
+				fpdInstance.currentViewInstance.alignElement('right');
+			}
+			else if($this.hasClass('fpd-align-bottom')) {
+				fpdInstance.currentViewInstance.alignElement('bottom');
+			}
+			else if($this.hasClass('fpd-align-center-h')) {
+				fpdInstance.currentViewInstance.centerElement(true, false);
+			}
+			else if($this.hasClass('fpd-align-center-v')) {
+				fpdInstance.currentViewInstance.centerElement(false, true);
+			}
+			else if($this.hasClass('fpd-flip-h')) {
+				fpdInstance.currentViewInstance.setElementParameters({flipX: !fpdInstance.currentElement.getFlipX()});
+			}
+			else if($this.hasClass('fpd-flip-v')) {
+				fpdInstance.currentViewInstance.setElementParameters({flipY: !fpdInstance.currentElement.getFlipY()});
+			}
 
 			instance.updatePosition(fpdInstance.currentElement);
 
-		}
-		else {
+		});
 
-			$uiToolbarSub.hide();
+		//move layer position
+		$uiElementToolbar.find('.fpd-tool-move-up, .fpd-tool-move-down').click(function() {
 
-		}
+			var currentZ = fpdInstance.currentViewInstance.getZIndex();
 
-	});
+			currentZ = $(this).hasClass('fpd-tool-move-up') ? currentZ+1 : currentZ-1;
+			currentZ = currentZ < 0 ? 0 : currentZ;
 
-	//create range slider
-	$uiToolbarSub.find('.fpd-slider-range').rangeslider({
-		polyfill: false,
-		rangeClass: 'fpd-range-slider',
-		disabledClass: 'fpd-range-slider--disabled',
-		horizontalClass: 'fpd-range-slider--horizontal',
-	    verticalClass: 'fpd-range-slider--vertical',
-	    fillClass: 'fpd-range-slider__fill',
-	    handleClass: 'fpd-range-slider__handle',
-	    onSlide: function(pos, value) {
+			fpdInstance.currentViewInstance.setElementParameters( {z: currentZ} );
 
-		    this.$element.parent().prev('.fpd-slider-number').val(value).change();
+	    });
 
-		    //proportional scaling
-		    if(this.$element.data('control') === 'scaleX' && fpdInstance.currentElement && fpdInstance.currentElement.lockUniScaling) {
-			    $uiToolbarSub.find('.fpd-slider-number[data-control="scaleY"]').val(value).change();
-		    }
+		//reset element
+	    $uiElementToolbar.find('.fpd-tool-reset').click(function() {
 
-	    },
-	    onSlideEnd: function() {
+			$uiElementToolbar.find('.tooltipstered').tooltipster('destroy');
+		    fpdInstance.currentViewInstance.setElementParameters( fpdInstance.currentElement.originParams );
+			instance.update(fpdInstance.currentElement);
+			FPDUtil.updateTooltip();
 
-		    instance.isTransforming = false;
-		    instance.updatePosition(fpdInstance.currentElement);
+		});
 
-	    }
-	});
+		//append fonts to dropdown
+		if(fpdInstance.mainOptions.fonts && fpdInstance.mainOptions.fonts.length > 0) {
 
-	//patterns
-	if(fpdInstance.mainOptions.patterns && fpdInstance.mainOptions.patterns.length > 0) {
+			fpdInstance.mainOptions.fonts.sort();
 
-		for(var i=0; i < fpdInstance.mainOptions.patterns.length; ++i) {
+			for(var i=0; i < fpdInstance.mainOptions.fonts.length; ++i) {
 
-			var patternUrl = fpdInstance.mainOptions.patterns[i];
-			$uiToolbarSub.find('.fpd-patterns > .fpd-grid').append('<div class="fpd-item" data-pattern="'+patternUrl+'"><picture style="background-image: url('+patternUrl+');"></picture></div>')
-			.children(':last').click(function() {
+				var font = fpdInstance.mainOptions.fonts[i];
+				$fontFamilyDropdown.children('.fpd-dropdown-list')
+				.append('<span class="fpd-item" data-value="'+font+'">'+font+'</span>')
+				.children(':last').css('font-family', font);
 
-				var patternUrl = $(this).data('pattern');
-				$uiElementToolbar.find('.fpd-current-fill').css('background', 'url('+patternUrl+')');
-				fpdInstance.currentViewInstance.setElementParameters( {pattern: patternUrl} );
-
-
-			});
-
-		}
-
-	}
-
-	//filters
-	$uiToolbarSub.find('.fpd-filters .fpd-item').click(function() {
-
-		var $this = $(this);
-		$uiElementToolbar.find('.fpd-current-fill').css('background', $this.children('picture').css('background-image'));
-		fpdInstance.currentViewInstance.setElementParameters( {filter: $this.data('filter')} );
-
-	});
-
-	//position
-	$uiToolbarSub.find('.fpd-panel-position .fpd-icon-button-group > span').click(function() {
-
-		var $this = $(this);
-		if($this.hasClass('fpd-align-left')) {
-			fpdInstance.currentViewInstance.alignElement('left');
-		}
-		else if($this.hasClass('fpd-align-top')) {
-			fpdInstance.currentViewInstance.alignElement('top');
-		}
-		else if($this.hasClass('fpd-align-right')) {
-			fpdInstance.currentViewInstance.alignElement('right');
-		}
-		else if($this.hasClass('fpd-align-bottom')) {
-			fpdInstance.currentViewInstance.alignElement('bottom');
-		}
-		else if($this.hasClass('fpd-align-center-h')) {
-			fpdInstance.currentViewInstance.centerElement(true, false);
-		}
-		else if($this.hasClass('fpd-align-center-v')) {
-			fpdInstance.currentViewInstance.centerElement(false, true);
-		}
-		else if($this.hasClass('fpd-flip-h')) {
-			fpdInstance.currentViewInstance.setElementParameters({flipX: !fpdInstance.currentElement.getFlipX()});
-		}
-		else if($this.hasClass('fpd-flip-v')) {
-			fpdInstance.currentViewInstance.setElementParameters({flipY: !fpdInstance.currentElement.getFlipY()});
-		}
-
-		instance.updatePosition(fpdInstance.currentElement);
-
-	});
-
-	//move layer position
-	$uiElementToolbar.find('.fpd-tool-move-up, .fpd-tool-move-down').click(function() {
-
-		var currentZ = fpdInstance.currentViewInstance.getZIndex();
-
-		currentZ = $(this).hasClass('fpd-tool-move-up') ? currentZ+1 : currentZ-1;
-		currentZ = currentZ < 0 ? 0 : currentZ;
-
-		fpdInstance.currentViewInstance.setElementParameters( {z: currentZ} );
-
-    });
-
-	//reset element
-    $uiElementToolbar.find('.fpd-tool-reset').click(function() {
-
-		$uiElementToolbar.find('.tooltipstered').tooltipster('destroy');
-	    fpdInstance.currentViewInstance.setElementParameters( fpdInstance.currentElement.originParams );
-		instance.update(fpdInstance.currentElement);
-		FPDUtil.updateTooltip();
-
-	});
-
-	//append fonts to dropdown
-	if(fpdInstance.mainOptions.fonts && fpdInstance.mainOptions.fonts.length > 0) {
-
-		fpdInstance.mainOptions.fonts.sort();
-
-		for(var i=0; i < fpdInstance.mainOptions.fonts.length; ++i) {
-
-			var font = fpdInstance.mainOptions.fonts[i];
-			$fontFamilyDropdown.children('.fpd-dropdown-list')
-			.append('<span class="fpd-item" data-value="'+font+'">'+font+'</span>')
-			.children(':last').css('font-family', font);
-
-		}
-
-	}
-	else {
-		$fontFamilyDropdown.hide();
-	}
-
-	//edit text
-	var tempFocusText = null;
-    $uiToolbarSub.find('.fpd-panel-edit-text textarea').keyup(function(evt) {
-
-	    evt.stopPropagation;
-	    evt.preventDefault();
-
-	    var selectionStart = this.selectionStart,
-		 	selectionEnd = this.selectionEnd;
-
-		fpdInstance.currentViewInstance.currentElement.isEditing = true;
-	    fpdInstance.currentViewInstance.setElementParameters( {text: this.value} );
-
-	    this.selectionStart = selectionStart;
-		this.selectionEnd = selectionEnd;
-
-    })
-    .focus(function() {
-	    tempFocusText = fpdInstance.currentViewInstance.currentElement;
-	    tempFocusText.isEditing = true;
-    })
-    .focusout(function() {
-	    tempFocusText.isEditing = false;
-	    tempFocusText = null;
-    });
-
-	//call content in tab
-	$uiToolbarSub.find('.fpd-panel-tabs > span').click(function() {
-
-		var $this = $(this);
-
-		$this.addClass('fpd-active').siblings().removeClass('fpd-active');
-		$this.parent().nextAll('.fpd-panel-tabs-content').children('[data-id="'+this.id+'"]').addClass('fpd-active')
-		.siblings().removeClass('fpd-active');
-
-	});
-
-
-	$uiElementToolbar.find('.fpd-number').change(function() {
-
-		var $this = $(this),
-			numberParameters = {};
-
-		if( this.value > Number($this.attr('max')) ) {
-			this.value = Number($this.attr('max'));
-		}
-
-		if( this.value < Number($this.attr('min')) ) {
-			this.value = Number($this.attr('min'));
-		}
-
-		if($this.hasClass('fpd-slider-number')) {
-			$this.next('.fpd-range-wrapper').children('input').val(this.value)
-			.rangeslider('update', true, false);
-
-			if($this.data('control') === 'scaleX' && fpdInstance.currentElement && fpdInstance.currentElement.lockUniScaling) {
-				$uiElementToolbar.find('[data-control="scaleY"]').val(this.value).change();
 			}
 
 		}
-
-		numberParameters[$this.data('control')] = Number(this.value);
-
-		if(fpdInstance.currentViewInstance) {
-
-			fpdInstance.currentViewInstance.setElementParameters(
-				numberParameters,
-				fpdInstance.currentViewInstance.currentElement,
-				!instance.isTransforming
-			);
-
+		else {
+			$fontFamilyDropdown.hide();
 		}
 
-	});
+		//edit text
+		var tempFocusText = null;
+	    $uiToolbarSub.find('.fpd-panel-edit-text textarea').keyup(function(evt) {
 
-	$uiElementToolbar.find('.fpd-toggle').click(function() {
+		    evt.stopPropagation;
+		    evt.preventDefault();
 
-		var $this = $(this).toggleClass('fpd-enabled'),
-			toggleParameters = {};
+		    var selectionStart = this.selectionStart,
+			 	selectionEnd = this.selectionEnd;
 
-		if(!$this.hasClass('fpd-curved-text-switcher')) {
+			fpdInstance.currentViewInstance.currentElement.isEditing = true;
+		    fpdInstance.currentViewInstance.setElementParameters( {text: this.value} );
 
-			toggleParameters[$this.data('control')] = $this.hasClass('fpd-enabled') ? $this.data('enabled') : $this.data('disabled');
+		    this.selectionStart = selectionStart;
+			this.selectionEnd = selectionEnd;
 
-			if($this.hasClass('fpd-tool-uniscaling-locker')) {
-				_lockUniScaling($this.hasClass('fpd-enabled'));
+	    })
+	    .focus(function() {
+		    tempFocusText = fpdInstance.currentViewInstance.currentElement;
+		    tempFocusText.isEditing = true;
+	    })
+	    .focusout(function() {
+		    tempFocusText.isEditing = false;
+		    tempFocusText = null;
+	    });
+
+		//call content in tab
+		$uiToolbarSub.find('.fpd-panel-tabs > span').click(function() {
+
+			var $this = $(this);
+
+			$this.addClass('fpd-active').siblings().removeClass('fpd-active');
+			$this.parent().nextAll('.fpd-panel-tabs-content').children('[data-id="'+this.id+'"]').addClass('fpd-active')
+			.siblings().removeClass('fpd-active');
+
+			$colorPicker.children('input').spectrum('hide');
+
+		});
+
+
+		$uiElementToolbar.find('.fpd-number').change(function() {
+
+			var $this = $(this),
+				numberParameters = {};
+
+			if( this.value > Number($this.attr('max')) ) {
+				this.value = Number($this.attr('max'));
 			}
 
-			fpdInstance.currentViewInstance.setElementParameters(toggleParameters);
+			if( this.value < Number($this.attr('min')) ) {
+				this.value = Number($this.attr('min'));
+			}
 
-		}
+			if($this.hasClass('fpd-slider-number')) {
+
+				$this.next('.fpd-range-wrapper').children('input').val(this.value)
+				.rangeslider('update', true, false);
+
+				if($this.data('control') === 'scaleX' && fpdInstance.currentElement && fpdInstance.currentElement.lockUniScaling) {
+					$uiElementToolbar.find('[data-control="scaleY"]').val(this.value).change();
+				}
+
+			}
+
+			numberParameters[$this.data('control')] = Number(this.value);
+
+			if(fpdInstance.currentViewInstance) {
+
+				fpdInstance.currentViewInstance.setElementParameters(
+					numberParameters,
+					fpdInstance.currentViewInstance.currentElement,
+					!instance.isTransforming
+				);
+
+			}
+
+		});
+
+		$uiElementToolbar.find('.fpd-toggle').click(function() {
+
+			var $this = $(this).toggleClass('fpd-enabled'),
+				toggleParameters = {};
+
+			if(!$this.hasClass('fpd-curved-text-switcher')) {
+
+				toggleParameters[$this.data('control')] = $this.hasClass('fpd-enabled') ? $this.data('enabled') : $this.data('disabled');
+
+				if($this.hasClass('fpd-tool-uniscaling-locker')) {
+					_lockUniScaling($this.hasClass('fpd-enabled'));
+				}
+
+				fpdInstance.currentViewInstance.setElementParameters(toggleParameters);
+
+			}
 
 
-	});
+		});
 
-	$uiElementToolbar.find('.fpd-dropdown .fpd-item').click(function() {
+		$uiElementToolbar.find('.fpd-dropdown .fpd-item').click(function(evt) {
 
-		var $this = $(this),
-			$current = $this.parent().prevAll('.fpd-dropdown-current:first'),
-			value = $this.data('value'),
-			parameter = {};
+			evt.stopPropagation();
 
-		var control = $current.is('input') ? $current.val(value) : $current.html($this.clone()).data('value', value);
+			var $this = $(this),
+				$current = $this.parent().prevAll('.fpd-dropdown-current:first'),
+				value = $this.data('value'),
+				parameter = {};
 
-		parameter[$current.data('control')] = value;
+			var control = $current.is('input') ? $current.val(value) : $current.html($this.clone()).data('value', value);
 
-		if($current.data('control') === 'fontFamily') {
-			$current.css('font-family', value);
-		}
+			parameter[$current.data('control')] = value;
 
-		fpdInstance.currentViewInstance.setElementParameters(parameter);
+			if($current.data('control') === 'fontFamily') {
+				$current.css('font-family', value);
+			}
 
-		$this.siblings('.fpd-item').show();
+			fpdInstance.currentViewInstance.setElementParameters(parameter);
 
-	});
+			$this.siblings('.fpd-item').show();
 
-	$uiElementToolbar.find('.fpd-dropdown.fpd-search > input').keyup(function() {
+		});
 
-		var $items = $(this).css('font-family', 'Helvetica').nextAll('.fpd-dropdown-list:first')
-		.children('.fpd-item').hide();
+		$uiElementToolbar.find('.fpd-dropdown.fpd-search > input').keyup(function() {
 
-		if(this.value.length === 0) {
-			$items.show();
-		}
-		else {
-			$items.filter(':containsCaseInsensitive("'+this.value+'")').show();
-		}
+			var $items = $(this).css('font-family', 'Helvetica').nextAll('.fpd-dropdown-list:first')
+			.children('.fpd-item').hide();
 
-	});
+			if(this.value.length === 0) {
+				$items.show();
+			}
+			else {
+				$items.filter(':containsCaseInsensitive("'+this.value+'")').show();
+			}
+
+		});
+
+	};
 
 
 	var _toggleUiTool = function(tool, showHide) {
@@ -4960,134 +5310,6 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 		//colors array, true=svg colorization,
 		if(FPDUtil.elementHasColorSelection(element)) {
 
-			colorChanged = false;
-
-			if(element.colorLinkGroup) {
-				var availableColors = fpdInstance.colorLinkGroups[element.colorLinkGroup].colors;
-			}
-			else {
-				var availableColors = element.colors;
-			}
-
-			$colorPicker.empty().removeClass('fpd-colorpicker-group');
-
-			//path (svg)
-			if(element.type == 'path-group') {
-
-				for(var i=0; i<element.paths.length; ++i) {
-					var path = element.paths[i],
-						color = tinycolor(path.fill);
-
-					$colorPicker.append('<input type="text" value="'+color.toHexString()+'" />');
-				}
-
-				$colorPicker.addClass('fpd-colorpicker-group').children('input').spectrum('destroy').spectrum({
-					showPaletteOnly: $.isArray(element.colors),
-					preferredFormat: "hex",
-					showInput: true,
-					showInitial: true,
-					showButtons: false,
-					showPalette: fpdInstance.mainOptions.colorPickerPalette && fpdInstance.mainOptions.colorPickerPalette.length > 0,
-					palette: $.isArray(element.colors) ? element.colors : fpdInstance.mainOptions.colorPickerPalette,
-					show: function(color) {
-
-						var svgColors = FPDUtil.changePathColor(
-							fpdInstance.currentElement,
-							$colorPicker.children('input').index(this),
-							color
-						);
-
-						element._tempFill = svgColors;
-
-					},
-					move: function(color) {
-
-						var svgColors = FPDUtil.changePathColor(
-							fpdInstance.currentElement,
-							$colorPicker.children('input').index(this),
-							color
-						);
-
-						fpdInstance.currentViewInstance.changeColor(fpdInstance.currentElement, svgColors);
-
-					},
-					change: function(color) {
-
-						var svgColors = FPDUtil.changePathColor(
-							element,
-							$colorPicker.children('input').index(this),
-							color
-						);
-
-						$(document).unbind("click.spectrum"); //fix, otherwise change is fired on every click
-						fpdInstance.currentViewInstance.setElementParameters({fill: svgColors}, element);
-
-					}
-				});
-
-			}
-			//color list
-			else if(availableColors.length > 1) {
-
-				$colorPicker.html('<div class="fpd-color-palette fpd-grid"></div>');
-
-				for(var i=0; i<availableColors.length; ++i) {
-
-					var color = availableColors[i];
-						colorName = fpdInstance.mainOptions.hexNames[color.replace('#', '')];
-
-					colorName = colorName ? colorName : color;
-					$colorPicker.children('.fpd-grid').append('<div class="fpd-item fpd-tooltip" title="'+colorName+'" style="background-color: '+color+';"></div>')
-					.children('.fpd-item:last').click(function() {
-						var color = tinycolor($(this).css('backgroundColor'));
-						fpdInstance.currentViewInstance.setElementParameters({fill: color.toHexString()});
-					});
-
-				}
-
-				FPDUtil.updateTooltip();
-
-			}
-			//colorwheel
-			else {
-
-				$colorPicker.html('<input type="text" value="'+(element.fill ? element.fill : availableColors[0])+'" />');
-
-				$colorPicker.children('input').spectrum('destroy').spectrum({
-					flat: true,
-					preferredFormat: "hex",
-					showInput: true,
-					showInitial: true,
-					showPalette: fpdInstance.mainOptions.colorPickerPalette && fpdInstance.mainOptions.colorPickerPalette.length > 0,
-					palette: fpdInstance.mainOptions.colorPickerPalette,
-					show: function(color) {
-						element._tempFill = color.toHexString();
-					},
-					move: function(color) {
-
-						//only non-png images are chaning while dragging
-						if(colorDragging === false || FPDUtil.elementIsColorizable(element) !== 'png') {
-							_setElementColor(color.toHexString());
-						}
-
-					},
-					change: function(color) {
-
-						$(document).unbind("click.spectrum"); //fix, otherwise change is fired on every click
-						fpdInstance.currentViewInstance.setElementParameters({fill: color.toHexString()}, element);
-
-					}
-				})
-				.on('dragstart.spectrum', function() {
-					colorDragging = true;
-				})
-				.on('dragstop.spectrum', function(evt, color) {
-					colorDragging = false;
-					_setElementColor(color.toHexString());
-				});
-
-			}
-
 			_toggleUiTool('fill');
 			_togglePanelTab('fill', 'color', true);
 
@@ -5110,14 +5332,16 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 			_toggleUiTool('move');
 		}
 
+
+		if((element.type === 'path-group' || FPDUtil.getType(element.type) === 'text') && element.patterns && element.patterns.length) {
+
+			_toggleUiTool('fill');
+			_togglePanelTab('fill', 'pattern', true);
+
+		}
+
 		//text options
 		if(FPDUtil.getType(element.type) === 'text' && element.editable) {
-
-
-			if(fpdInstance.mainOptions.patterns.length > 0 && element.patternable) {
-				_toggleUiTool('fill');
-				_togglePanelTab('fill', 'pattern', true);
-			}
 
 			_toggleUiTool('font-family');
 			_toggleUiTool('text-size');
@@ -5130,23 +5354,9 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 			if(element.curvable) {
 				_toggleUiTool('curved-text');
 			}
+
 			$uiToolbarSub.find('.fpd-panel-edit-text textarea').val(element.getText());
 			_toggleUiTool('edit-text');
-
-			//stroke color
-		    $uiToolbarSub.find('.fpd-stroke-color-picker input').spectrum('destroy').spectrum({
-				flat: true,
-				preferredFormat: "hex",
-				showInput: true,
-				showInitial: true,
-				showPalette: fpdInstance.mainOptions.colorPickerPalette && fpdInstance.mainOptions.colorPickerPalette.length > 0,
-				palette: fpdInstance.mainOptions.colorPickerPalette,
-				move: function(color) {
-					instance.isTransforming = true;
-					fpdInstance.currentViewInstance.setElementParameters( {stroke: color.toHexString()} );
-
-				}
-			});
 
 		}
 
@@ -5168,7 +5378,8 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 			if($uiElement.hasClass('fpd-number')) {
 
 				if(element[parameter] !== undefined) {
-					$uiElement.val(element[parameter]);
+					var numVal = $uiElement.attr('step') && $uiElement.attr('step').length > 1 ? parseFloat(element[parameter].toFixed(2)) : parseInt(element[parameter]);
+					$uiElement.val(numVal);
 				}
 
 			}
@@ -5233,18 +5444,11 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 
 		});
 
-		//set maximal width
-		$uiElementToolbar.width(320);
-		//calculate largest width of rows
-		var maxWidth = Math.max.apply( null, $( $uiElementToolbar.children('.fpd-row') ).map( function () {
-		    return $( this ).outerWidth( true );
-		}).get() );
-		//set new width
-		$uiElementToolbar.width(maxWidth+2);
-
+		instance.updatePosition(element);
+		/* maybe later
 		setTimeout(function() {
-			instance.updatePosition(element);
-		}, 10);
+
+		}, 10);*/
 
 	};
 
@@ -5270,21 +5474,42 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 
 		var oCoords = element.oCoords,
 			topOffset = oCoords.mb.y,
-			designerOffset = fpdInstance.$productStage.offset();
+			designerOffset = fpdInstance.$productStage.offset(),
+			mainWrapperOffset = fpdInstance.$mainWrapper.offset();
 
-		topOffset = oCoords.tl.y > topOffset ? oCoords.tl.y : topOffset;
-		topOffset = oCoords.tr.y > topOffset ? oCoords.tr.y : topOffset;
-		topOffset = oCoords.bl.y > topOffset ? oCoords.bl.y : topOffset;
-		topOffset = oCoords.br.y > topOffset ? oCoords.br.y : topOffset;
-		topOffset = topOffset + element.padding + element.cornerSize + designerOffset.top;
-		topOffset = topOffset > fpdInstance.$productStage.height() + designerOffset.top ? fpdInstance.$productStage.height() + designerOffset.top + 5 : topOffset;
-		topOffset = topOffset + 400 > document.body.scrollHeight ? document.body.scrollHeight - 400 : topOffset;
+		if(instance.placement == 'inside-bottom' || instance.placement == 'inside-top') {
 
-		var posLeft = designerOffset.left + oCoords.mb.x,
-			halfWidth =  $uiElementToolbar.outerWidth() * .5;
+			posLeft = mainWrapperOffset.left;
+			topOffset = instance.placement == 'inside-top' ? mainWrapperOffset.top : mainWrapperOffset.top + fpdInstance.$mainWrapper.height();
+			$uiElementToolbar.width(fpdInstance.$productStage.width() - parseInt($uiElementToolbar.css('paddingLeft')) * 2);
 
-		posLeft = posLeft < halfWidth ? halfWidth : posLeft; //move toolbar not left outside of document
-		posLeft = posLeft > $(window).width() - halfWidth ? $(window).width() - halfWidth : posLeft; //move toolbar not right outside of document
+		}
+		else { //dynamic
+
+			//set maximal width
+			$uiElementToolbar.width(320);
+			//calculate largest width of rows
+			var maxWidth = Math.max.apply( null, $( $uiElementToolbar.children('.fpd-row') ).map( function () {
+			    return $( this ).outerWidth( true );
+			}).get() );
+			//set new width
+			$uiElementToolbar.width(maxWidth+2);
+
+			topOffset = oCoords.tl.y > topOffset ? oCoords.tl.y : topOffset;
+			topOffset = oCoords.tr.y > topOffset ? oCoords.tr.y : topOffset;
+			topOffset = oCoords.bl.y > topOffset ? oCoords.bl.y : topOffset;
+			topOffset = oCoords.br.y > topOffset ? oCoords.br.y : topOffset;
+			topOffset = topOffset + element.padding + element.cornerSize + designerOffset.top;
+			topOffset = topOffset > fpdInstance.$productStage.height() + designerOffset.top ? fpdInstance.$productStage.height() + designerOffset.top + 5 : topOffset;
+			topOffset = topOffset + 400 > document.body.scrollHeight ? document.body.scrollHeight - 400 : topOffset;
+
+			var posLeft = designerOffset.left + oCoords.mb.x,
+				halfWidth =  $uiElementToolbar.outerWidth() * .5;
+
+			posLeft = posLeft < halfWidth ? halfWidth : posLeft; //move toolbar not left outside of document
+			posLeft = posLeft > $(window).width() - halfWidth ? $(window).width() - halfWidth : posLeft; //move toolbar not right outside of document
+
+		}
 
 		$uiElementToolbar.css({
 			left: posLeft,
@@ -5308,6 +5533,21 @@ var FPDToolbar = function($uiElementToolbar, fpdInstance) {
 
 	};
 
+	this.setPlacement = function(placement) {
+
+		instance.placement = placement;
+
+		//remove fpd-toolbar-placement-* class
+		$uiElementToolbar.removeClass (function (index, css) {
+		    return (css.match (/(^|\s)fpd-toolbar-placement-\S+/g) || []).join(' ');
+		});
+
+		$uiElementToolbar.addClass('fpd-toolbar-placement-'+placement);
+
+	}
+
+	_initialize();
+
 };
 
 var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
@@ -5319,15 +5559,76 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 
 	this.currentModules = fpdInstance.mainOptions.mainBarModules;
 	this.$selectedModule = null;
+	this.$container = $mainBar;
 
 	var _initialize = function() {
 
-		if(fpdInstance.$container.hasClass('fpd-topbar') && !fpdInstance.$container.hasClass('fpd-main-bar-container-enabled')) { //draggable dialog
+		if(fpdInstance.$container.hasClass('fpd-topbar') && !fpdInstance.$container.hasClass('fpd-main-bar-container-enabled') && fpdInstance.$container.filter('[class*="fpd-off-canvas-"]').size() === 0) { //draggable dialog
+
 			$content = $draggableDialog.addClass('fpd-grid-columns-'+fpdInstance.mainOptions.gridColumns).append('<div class="fpd-content"></div>').children('.fpd-content');
+
 		}
 		else {
 			$content = $mainBar.append('<div class="fpd-content"></div>').children('.fpd-content');
 		}
+
+		instance.$content = $content;
+
+		if(fpdInstance.$container.filter('[class*="fpd-off-canvas-"]').size() > 0) {
+
+			var touchStart = 0,
+				panX = 0,
+				closeStartX = 0,
+				$closeBtn = $mainBar.children('.fpd-close-off-canvas');
+
+			$content.on('touchstart', function(evt) {
+
+				touchStart = evt.originalEvent.touches[0].pageX;
+				closeStartX = parseInt($closeBtn.css(fpdInstance.$container.hasClass('fpd-off-canvas-left') ? 'left' : 'right'));
+
+			})
+			.on('touchmove', function(evt) {
+
+				evt.preventDefault();
+
+				var moveX = evt.originalEvent.touches[0].pageX;
+					panX = touchStart-moveX,
+					targetPos = fpdInstance.$container.hasClass('fpd-off-canvas-left') ? 'left' : 'right';
+
+				panX = Math.abs(panX) < 0 ? 0 : Math.abs(panX);
+				$content.css(targetPos, -panX);
+				$closeBtn.css(targetPos, closeStartX - panX);
+
+			})
+			.on('touchend', function(evt) {
+
+				var targetPos = fpdInstance.$container.hasClass('fpd-off-canvas-left') ? 'left' : 'right';
+
+				if(Math.abs(panX) > 100) {
+
+					instance.toggleDialog(false);
+
+				}
+				else {
+					$content.css(targetPos, 0);
+					$closeBtn.css(targetPos, closeStartX);
+				}
+
+				panX = 0;
+
+			});
+
+		}
+
+		//close off-canvas
+		$mainBar.on('click', '.fpd-close-off-canvas', function(evt) {
+
+			evt.stopPropagation();
+
+			$nav.children('div').removeClass('fpd-active');
+			instance.toggleDialog(false);
+
+		});
 
 		$body.append($draggableDialog);
 		$draggableDialog.draggable({
@@ -5336,16 +5637,31 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 		});
 
 		//select module
-		$nav.on('click', '> div', function() {
+		$nav.on('click', '> div', function(evt) {
+
+			evt.stopPropagation();
 
 			var $this = $(this);
 
+			fpdInstance.deselectElement();
+
+			if(fpdInstance.currentViewInstance) {
+				fpdInstance.currentViewInstance.currentUploadZone = null;
+			}
+
+			$content.find('.fpd-manage-layers-panel')
+			.find('.fpd-current-color, .fpd-path-colorpicker').spectrum('destroy');
+
 			if(fpdInstance.$container.hasClass('fpd-topbar') && $this.hasClass('fpd-active')) {
+
 				$this.removeClass('fpd-active');
 				instance.toggleDialog(false);
+
 			}
 			else {
+
 				instance.callModule($this.data('module'));
+
 			}
 
 		});
@@ -5361,6 +5677,23 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 			    }
 
 		    }
+		});
+
+		$content.on('click', '.fpd-bottom-nav > div', function() {
+
+			var $this = $(this);
+
+			$this.addClass('fpd-active').siblings().removeClass('fpd-active');
+
+			var $selectedModule = $this.parent().next().children('[data-module="'+$this.data('module')+'"]').addClass('fpd-active');
+			$selectedModule.siblings().removeClass('fpd-active');
+
+			//short timeout, because fpd-grid must be visible
+			setTimeout(function() {
+				FPDUtil.refreshLazyLoad($selectedModule.find('.fpd-grid'), false);
+			}, 10);
+
+
 		});
 
 		//close dialog
@@ -5423,7 +5756,23 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 
 		}
 
+		instance.toggleDialog(true);
+
 		FPDUtil.refreshLazyLoad(instance.$selectedModule.find('.fpd-grid'), false);
+
+	};
+
+	this.callSecondary = function(className) {
+
+		instance.callModule('secondary');
+
+		$content.children('.fpd-secondary-module').children('.'+className).addClass('fpd-active')
+		.siblings().removeClass('fpd-active');
+
+
+		if(className === 'fpd-upload-zone-adds-panel') {
+			$content.find('.fpd-upload-zone-adds-panel .fpd-bottom-nav > :not(.fpd-hidden)').first().click();
+		}
 
 	};
 
@@ -5468,13 +5817,72 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 
 	this.toggleDialog = function(toggle) {
 
-		if(fpdInstance.$container.hasClass('fpd-topbar')) {
+		if(fpdInstance.$container.hasClass('fpd-topbar') && fpdInstance.$container.filter('[class*="fpd-off-canvas-"]').size() === 0) {
 
 			toggle = typeof toggle === 'undefined' ? true : toggle;
 
 			$draggableDialog.toggleClass('fpd-active', toggle);
 
 		}
+
+		if(fpdInstance.$container.filter('[class*="fpd-off-canvas-"]').size() > 0) {
+
+			instance.$container.toggleClass('fpd-show', toggle)
+			.children('.fpd-close-off-canvas').removeAttr('style');
+			instance.$content.removeAttr('style')
+			.height(fpdInstance.$mainWrapper.height());
+
+			if($nav.children('div').length === 0) {
+				instance.$content.css('top', 0);
+			}
+			else {
+				instance.$content.css('top', $nav.height());
+			}
+
+		}
+
+	};
+
+	this.toggleUploadZonePanel = function(toggle) {
+
+		toggle = typeof toggle === 'undefined' ? true : toggle;
+
+		if(toggle) {
+
+			instance.callSecondary('fpd-upload-zone-adds-panel');
+
+		}
+		else {
+
+			fpdInstance.currentViewInstance.currentUploadZone = null;
+
+			if(fpdInstance.$container.hasClass('fpd-sidebar')) {
+				instance.callModule(fpdInstance.mainBar.currentModules[0]);
+			}
+
+		}
+
+	};
+
+	this.toggleUploadZoneAdds = function(customAdds) {
+
+		var $uploadZoneAddsPanel = $content.find('.fpd-upload-zone-adds-panel');
+
+		$uploadZoneAddsPanel.find('.fpd-add-image').toggleClass('fpd-hidden', !Boolean(customAdds.uploads));
+		$uploadZoneAddsPanel.find('.fpd-add-text').toggleClass('fpd-hidden', !Boolean(customAdds.texts));
+		$uploadZoneAddsPanel.find('.fpd-add-design').toggleClass('fpd-hidden', !Boolean(customAdds.designs));
+
+		if(fpdInstance.currentElement.price) {
+			var price = fpdInstance.mainOptions.priceFormat.replace('%d', fpdInstance.currentElement.price);
+			$uploadZoneAddsPanel.find('[data-module="text"] .fpd-btn > .fpd-price').html(' - '+price);
+		}
+		else {
+			$uploadZoneAddsPanel.find('[data-module="text"] .fpd-btn > .fpd-price').html('');
+		}
+
+
+		//select first visible add panel
+		$uploadZoneAddsPanel.find('.fpd-off-canvas-nav > :not(.fpd-hidden)').first().click();
 
 	};
 
@@ -5485,7 +5893,7 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 		var selectedModule = fpdInstance.mainOptions.initialActiveModule;
 
 		//if only modules exist, select it and hide nav
-		if(instance.currentModules.length <= 1) {
+		if(instance.currentModules.length <= 1 && !fpdInstance.$container.hasClass('fpd-topbar')) {
 			selectedModule = instance.currentModules[0] ? instance.currentModules[0] : '';
 			$nav.addClass('fpd-hidden');
 		}
@@ -5523,6 +5931,34 @@ var FPDMainBar = function(fpdInstance, $mainBar, $modules, $draggableDialog) {
 
 		}
 
+		if($content.children('[data-module="manage-layers"]').length === 0) {
+			$content.append($modules.children('[data-module="manage-layers"]').clone());
+		}
+
+		$content.append($modules.children('[data-module="secondary"]').clone());
+
+		//add upload zone modules
+		var uploadZoneModules = ['images', 'text', 'designs'];
+		for(var i=0; i < uploadZoneModules.length; ++i) {
+
+			var module = uploadZoneModules[i],
+				$module = $modules.children('[data-module="'+module+'"]'),
+				$moduleClone = $module.clone();
+
+			$content.find('.fpd-upload-zone-content').append($moduleClone);
+
+			if(module === 'text') {
+				new TextModule(fpdInstance, $moduleClone);
+			}
+			else if(module === 'designs') {
+				new DesignsModule(fpdInstance, $moduleClone);
+			}
+			else if(module === 'images') {
+				new ImagesModule(fpdInstance, $moduleClone);
+			}
+
+		}
+
 		if(fpdInstance.$container.hasClass('fpd-sidebar') && selectedModule == '') {
 			selectedModule = $nav.children().first().data('module');
 		}
@@ -5544,340 +5980,35 @@ FPDMainBar.availableModules = [
 
 var FPDActions = function(fpdInstance, $actions){
 
-	var instance = this;
+	var instance = this,
+		snapLinesGroup;
+
 	this.currentActions = fpdInstance.mainOptions.actions;
 
 	var _initialize = function() {
 
 		//add set action buttons
-		instance.setup(instance.currentActions);
+		if($actions) {
+			instance.setup(instance.currentActions);
+
+			//action click handler
+			fpdInstance.$mainWrapper.on('click', '.fpd-actions-wrapper .fpd-action-btn', function() {
+
+				var $this = $(this);
+
+				if($this.hasClass('tooltipstered')) {
+					$this.tooltipster('hide');
+				}
+
+				instance.doAction($this);
+
+			});
+
+		}
 
 		fpdInstance.$container.on('viewSelect', function() {
 
 			instance.resetAllActions();
-
-		});
-
-		//action click handler
-		fpdInstance.$mainWrapper.on('click', '.fpd-actions-wrapper .fpd-action-btn', function() {
-
-			var $this = $(this),
-				action = $this.data('action');
-
-			if($this.hasClass('tooltipstered')) {
-				$this.tooltipster('hide');
-			}
-
-			fpdInstance.deselectElement();
-
-			if(action === 'print') {
-
-				fpdInstance.print();
-
-			}
-			else if(action === 'reset-product') {
-
-				fpdInstance.loadProduct(fpdInstance.currentViews);
-
-			}
-			else if(action === 'undo') {
-
-				fpdInstance.currentViewInstance.undo();
-
-			}
-			else if(action === 'redo') {
-
-				fpdInstance.currentViewInstance.redo();
-
-			}
-			else if(action === 'info') {
-
-				FPDUtil.showModal($this.children('.fpd-info-content').text());
-
-			}
-			else if(action === 'preview-lightbox') {
-
-				fpdInstance.getProductDataURL(function(dataURL) {
-
-					var image = new Image();
-					image.src = dataURL;
-
-					image.onload = function() {
-						FPDUtil.showModal('<img src="'+this.src+'" download="product.png" />', true);
-					}
-
-				});
-
-			}
-			else if(action === 'save') {
-
-				var $prompt = FPDUtil.showModal(fpdInstance.getTranslation('actions', 'save_placeholder'), false, 'prompt');
-				$prompt.find('.fpd-btn').text(fpdInstance.getTranslation('actions', 'save')).click(function() {
-
-					fpdInstance.doUnsavedAlert = false;
-
-					var title = $(this).siblings('input:first').val();
-
-					//get key and value
-					var product = fpdInstance.getProduct(),
-						scaling = FPDUtil.getScalingByDimesions(fpdInstance.currentViewInstance.options.stageWidth, fpdInstance.currentViewInstance.options.stageHeight, 200, 200),
-						thumbnail = fpdInstance.currentViewInstance.stage.toDataURL({multiplier: scaling, format: 'png'});
-
-					//check if there is an existing products array
-					var savedProducts = _getSavedProducts();
-					if(!savedProducts) {
-						//create new
-						savedProducts = new Array();
-					}
-
-					savedProducts.push({thumbnail: thumbnail, product: product, title: title});
-					window.localStorage.setItem(fpdInstance.$container.attr('id'), JSON.stringify(savedProducts));
-
-					FPDUtil.showMessage(fpdInstance.getTranslation('misc', 'product_saved'));
-					$prompt.find('.fpd-modal-close').click();
-
-				});
-
-
-
-			}
-			else if(action === 'load') {
-
-				//load all saved products into list
-				var offCanvasSavedDesignsHtml = '<div class="fpd-off-canvas-saved-designs"></div>',
-					savedProducts = _getSavedProducts();
-
-				fpdInstance.stageOffCanvas.$container.find('.fpd-saved-designs-panel .fpd-grid').empty();
-
-				if(savedProducts) {
-
-					for(var i=0; i < savedProducts.length; ++i) {
-
-						var savedProduct = savedProducts[i];
-						_addSavedProduct(savedProduct.thumbnail, savedProduct.product, savedProduct.title);
-
-					}
-
-					FPDUtil.createScrollbar(fpdInstance.stageOffCanvas.$container.find('.fpd-saved-designs-panel .fpd-scroll-area'));
-
-				}
-
-				fpdInstance.stageOffCanvas.showPanel('saved-designs', true);
-
-
-			}
-			else if(action === 'manage-layers') {
-
-				var $manageLayersMainbar = fpdInstance.$container.find('.fpd-mainbar [data-module="manage-layers"]');
-				if($manageLayersMainbar.length > 0) {
-					$manageLayersMainbar.click();
-				}
-				else {
-					ManageLayersModule.createList(fpdInstance, fpdInstance.stageOffCanvas.$container.find('.fpd-manage-layers-panel'));
-					fpdInstance.stageOffCanvas.showPanel('manage-layers', true);
-				}
-
-
-			}
-			else if(action === 'snap') {
-
-				$this.toggleClass('fpd-active');
-
-				fpdInstance.$mainWrapper.children('.fpd-snap-line-h, .fpd-snap-line-v').hide();
-
-			}
-			else if(action === 'qr-code') {
-
-				var $internalModal = FPDUtil.showModal($this.children('.fpd-modal-qrcode').clone());
-
-				$colorPickers = $internalModal.find('.fpd-qrcode-colors input').spectrum({
-					preferredFormat: "hex",
-					showInput: true,
-					showInitial: true,
-					showButtons: false,
-					replacerClassName: 'fpd-spectrum-replacer'
-				});
-
-				$internalModal.find('.fpd-add-qr-code').click(function() {
-
-					var text = $internalModal.find('.fpd-modal-qrcode > input').val();
-
-					if(text && text.length !== 0) {
-
-						var $qrcodeWrapper = $internalModal.find('.fpd-qrcode-wrapper').empty(),
-							qrcode = new QRCode($qrcodeWrapper .get(0), {
-						    text: text,
-						    width: 256,
-						    height: 256,
-						    colorDark : $colorPickers.filter('.fpd-qrcode-color-dark').spectrum('get').toHexString(),
-						    colorLight : $colorPickers.filter('.fpd-qrcode-color-light').spectrum('get').toHexString(),
-						    correctLevel : QRCode.CorrectLevel.H
-						});
-
-						$qrcodeWrapper.find('img').load(function() {
-
-							fpdInstance.addElement('image', this.src, 'QR-Code - '+text, {
-								autoCenter: true,
-								draggable: true,
-								removable: true,
-								resizable: true
-							});
-
-							$internalModal.find('.fpd-modal-close').click();
-
-						});
-
-					}
-
-				});
-
-			}
-			else if(action === 'zoom') {
-
-				if(!$this.hasClass('fpd-active')) {
-
-					if($this.hasClass('tooltipstered')) {
-						$this.tooltipster('destroy');
-					}
-
-					$this.tooltipster({
-						trigger: 'click',
-						position: 'bottom',
-						content: $this.find('.fpd-tooltip-content'),
-						theme: 'fpd-sub-tooltip-theme fpd-zoom-tooltip',
-						touchDevices: false,
-						interactive: true,
-						//autoClose: false,
-						functionReady: function(origin, tooltip) {
-
-							var startVal = fpdInstance.currentViewInstance.stage.getZoom() / fpdInstance.currentViewInstance.responsiveScale;
-
-							tooltip.find('.fpd-zoom-slider').attr('step', fpdInstance.mainOptions.zoomStep).attr('max', fpdInstance.mainOptions.maxZoom)
-							.val(startVal).rangeslider({
-								polyfill: false,
-								rangeClass: 'fpd-range-slider',
-								disabledClass: 'fpd-range-slider--disabled',
-								horizontalClass: 'fpd-range-slider--horizontal',
-							    verticalClass: 'fpd-range-slider--vertical',
-							    fillClass: 'fpd-range-slider__fill',
-							    handleClass: 'fpd-range-slider__handle',
-							    onSlide: function(pos, value) {
-									fpdInstance.setZoom(value);
-							    }
-							});
-
-							tooltip.find('.fpd-stage-pan').click(function() {
-
-								fpdInstance.currentViewInstance.dragStage = fpdInstance.currentViewInstance.dragStage ? false : true;
-								$(this).toggleClass('fpd-enabled');
-								fpdInstance.$productStage.toggleClass('fpd-drag');
-
-							}).toggleClass('fpd-enabled', fpdInstance.currentViewInstance.dragStage);
-
-						},
-						functionAfter: function(origin) {
-
-							origin.removeClass('fpd-active')
-							.tooltipster('destroy');
-
-							origin.attr('title', origin.data('defaulttext'))
-							.tooltipster({
-								offsetY: 0,
-								position: 'bottom',
-								theme: '.fpd-tooltip-theme',
-								touchDevices: false,
-							});
-
-						}
-					});
-
-					$this.tooltipster('show');
-
-				}
-
-				$this.toggleClass('fpd-active');
-
-			}
-			else if(action === 'download') {
-
-				if(!$this.hasClass('fpd-active')) {
-
-					if($this.hasClass('tooltipstered')) {
-						$this.tooltipster('destroy');
-					}
-
-					$this.tooltipster({
-						trigger: 'click',
-						position: 'bottom',
-						content: $this.find('.fpd-tooltip-content'),
-						theme: 'fpd-sub-tooltip-theme',
-						touchDevices: false,
-						functionReady: function(origin, tooltip) {
-
-							tooltip.find('.fpd-item').click(function() {
-								instance.downloadFile($(this).data('value'))
-							});
-
-						},
-						functionAfter: function(origin) {
-
-							origin.removeClass('fpd-active')
-							.tooltipster('destroy');
-
-							origin.attr('title', origin.data('defaulttext'))
-							.tooltipster({
-								offsetY: 0,
-								position: 'bottom',
-								theme: '.fpd-tooltip-theme',
-								touchDevices: false,
-							});
-
-						}
-					});
-
-					$this.tooltipster('show');
-
-				}
-
-				$this.toggleClass('fpd-active');
-
-			}
-			else if(action === 'magnify-glass') {
-
-				fpdInstance.resetZoom();
-
-				if($this.hasClass('fpd-active')) {
-
-					$(".fpd-zoom-image,.zoomContainer").remove();
-					fpdInstance.$productStage.children('.fpd-view-stage').eq(fpdInstance.currentViewIndex).removeClass('fpd-hidden');
-
-				}
-				else {
-
-					fpdInstance.toggleSpinner();
-
-					var scaling = Number(2000 / fpdInstance.currentViewInstance.options.stageWidth).toFixed(2);
-						dataURL = fpdInstance.currentViewInstance.stage.toDataURL({multiplier: scaling, format: 'png'});
-
-					fpdInstance.$productStage.append('<img src="'+dataURL+'" class="fpd-zoom-image" />')
-					.children('.fpd-zoom-image').elevateZoom({
-						scrollZoom: true,
-						borderSize: 1,
-						zoomType: "lens",
-						lensShape: "round",
-						lensSize: 200,
-						responsive: true
-					}).load(function() {
-						fpdInstance.toggleSpinner(false);
-					});
-
-					fpdInstance.$productStage.children('.fpd-view-stage').addClass('fpd-hidden');
-
-				}
-
-				$this.toggleClass('fpd-active');
-
-			}
 
 		});
 
@@ -5913,7 +6044,7 @@ var FPDActions = function(fpdInstance, $actions){
 		title = title ? title : '';
 
 		//create new list item
-		var $gridWrapper = fpdInstance.stageOffCanvas.$container.find('.fpd-saved-designs-panel .fpd-grid'),
+		var $gridWrapper = fpdInstance.mainBar.$content.find('.fpd-saved-designs-panel .fpd-grid'),
 			htmlTitle = title !== '' ? 'title="'+title+'"' : '';
 
 		$gridWrapper.append('<div class="fpd-item fpd-tooltip" '+htmlTitle+'><picture style="background-image: url('+thumbnail+')" ></picture><div class="fpd-remove-design"><span class="fpd-icon-remove"></span></div></div>')
@@ -6025,6 +6156,468 @@ var FPDActions = function(fpdInstance, $actions){
 
 	};
 
+	this.doAction = function($this) {
+
+		var action = $this.data('action');
+
+		fpdInstance.deselectElement();
+
+		if(action === 'print') {
+
+			fpdInstance.print();
+
+		}
+		else if(action === 'reset-product') {
+
+			fpdInstance.loadProduct(fpdInstance.currentViews);
+
+		}
+		else if(action === 'undo') {
+
+			fpdInstance.currentViewInstance.undo();
+
+		}
+		else if(action === 'redo') {
+
+			fpdInstance.currentViewInstance.redo();
+
+		}
+		else if(action === 'info') {
+
+			FPDUtil.showModal($this.children('.fpd-info-content').text());
+
+		}
+		else if(action === 'preview-lightbox') {
+
+			fpdInstance.getProductDataURL(function(dataURL) {
+
+				var image = new Image();
+				image.src = dataURL;
+
+				image.onload = function() {
+					FPDUtil.showModal('<img src="'+this.src+'" download="product.png" />', true);
+				}
+
+			});
+
+		}
+		else if(action === 'save') {
+
+			var $prompt = FPDUtil.showModal(fpdInstance.getTranslation('actions', 'save_placeholder'), false, 'prompt');
+			$prompt.find('.fpd-btn').text(fpdInstance.getTranslation('actions', 'save')).click(function() {
+
+				fpdInstance.doUnsavedAlert = false;
+
+				var title = $(this).siblings('input:first').val();
+
+				//get key and value
+				var product = fpdInstance.getProduct(),
+					scaling = FPDUtil.getScalingByDimesions(fpdInstance.currentViewInstance.options.stageWidth, fpdInstance.currentViewInstance.options.stageHeight, 200, 200),
+					thumbnail = fpdInstance.currentViewInstance.stage.toDataURL({multiplier: scaling, format: 'png'});
+
+				//check if there is an existing products array
+				var savedProducts = _getSavedProducts();
+				if(!savedProducts) {
+					//create new
+					savedProducts = new Array();
+				}
+
+				savedProducts.push({thumbnail: thumbnail, product: product, title: title});
+				window.localStorage.setItem(fpdInstance.$container.attr('id'), JSON.stringify(savedProducts));
+
+				FPDUtil.showMessage(fpdInstance.getTranslation('misc', 'product_saved'));
+				$prompt.find('.fpd-modal-close').click();
+
+			});
+
+
+
+		}
+		else if(action === 'load') {
+
+			//load all saved products into list
+			var savedProducts = _getSavedProducts();
+
+			fpdInstance.mainBar.$content.find('.fpd-saved-designs-panel .fpd-grid').empty();
+
+			if(savedProducts) {
+
+				for(var i=0; i < savedProducts.length; ++i) {
+
+					var savedProduct = savedProducts[i];
+					_addSavedProduct(savedProduct.thumbnail, savedProduct.product, savedProduct.title);
+
+				}
+
+				FPDUtil.createScrollbar(fpdInstance.mainBar.$content.find('.fpd-saved-designs-panel .fpd-scroll-area'));
+
+			}
+
+			fpdInstance.mainBar.callSecondary('fpd-saved-designs-panel');
+
+
+		}
+		else if(action === 'manage-layers') {
+
+			fpdInstance.mainBar.callModule('manage-layers');
+
+
+		}
+		else if(action === 'snap') {
+
+			$this.toggleClass('fpd-active');
+
+			fpdInstance.$mainWrapper.children('.fpd-snap-line-h, .fpd-snap-line-v').hide();
+
+			if($this.hasClass('fpd-active')) {
+
+				var lines = [],
+					gridX = fpdInstance.mainOptions.snapGridSize[0] ? fpdInstance.mainOptions.snapGridSize[0] : 50,
+					gridY = fpdInstance.mainOptions.snapGridSize[1] ? fpdInstance.mainOptions.snapGridSize[1] : 50,
+					linesXNum = Math.ceil(fpdInstance.currentViewInstance.options.stageWidth / gridX),
+					linesYNum = Math.ceil(fpdInstance.currentViewInstance.options.stageHeight / gridY);
+
+				//add x-lines
+				for(var i=0; i < linesXNum; ++i) {
+
+					var lineX = new fabric.Rect({
+						width: 1,
+						height: fpdInstance.currentViewInstance.options.stageHeight,
+						fill: '#ccc',
+						opacity: 0.6,
+						left: i * gridX,
+						top: 0
+					});
+
+					lines.push(lineX);
+
+				}
+
+				//add y-lines
+				for(var i=0; i < linesYNum; ++i) {
+
+					var lineY = new fabric.Rect({
+						width: fpdInstance.currentViewInstance.options.stageWidth,
+						height: 1,
+						fill: '#ccc',
+						opacity: 0.6,
+						top: i * gridY,
+						left: 0
+					});
+
+					lines.push(lineY);
+
+				}
+
+				snapLinesGroup = new fabric.Group(lines, {id: '_snap_lines_group', left: 0, top: 0, evented: false, selectable: false});
+				fpdInstance.currentViewInstance.stage.add(snapLinesGroup);
+
+			}
+			else {
+
+				if(snapLinesGroup) {
+					fpdInstance.currentViewInstance.stage.remove(snapLinesGroup);
+				}
+
+			}
+
+		}
+		else if(action === 'qr-code') {
+
+			var $internalModal = FPDUtil.showModal($this.children('.fpd-modal-qrcode').clone());
+
+			$colorPickers = $internalModal.find('.fpd-qrcode-colors input').spectrum({
+				preferredFormat: "hex",
+				showInput: true,
+				showInitial: true,
+				showButtons: false,
+				replacerClassName: 'fpd-spectrum-replacer'
+			});
+
+			$internalModal.find('.fpd-add-qr-code').click(function() {
+
+				var text = $internalModal.find('.fpd-modal-qrcode > input').val();
+
+				if(text && text.length !== 0) {
+
+					var $qrcodeWrapper = $internalModal.find('.fpd-qrcode-wrapper').empty(),
+						qrcode = new QRCode($qrcodeWrapper .get(0), {
+					    text: text,
+					    width: 256,
+					    height: 256,
+					    colorDark : $colorPickers.filter('.fpd-qrcode-color-dark').spectrum('get').toHexString(),
+					    colorLight : $colorPickers.filter('.fpd-qrcode-color-light').spectrum('get').toHexString(),
+					    correctLevel : QRCode.CorrectLevel.H
+					});
+
+					$qrcodeWrapper.find('img').load(function() {
+
+						fpdInstance.addElement('image', this.src, 'QR-Code - '+text, {
+							autoCenter: true,
+							draggable: true,
+							removable: true,
+							resizable: true
+						});
+
+						$internalModal.find('.fpd-modal-close').click();
+
+					});
+
+				}
+
+			});
+
+		}
+		else if(action === 'zoom') {
+
+			if(!$this.hasClass('fpd-active')) {
+
+				if($this.hasClass('tooltipstered')) {
+					$this.tooltipster('destroy');
+				}
+
+				$this.tooltipster({
+					trigger: 'click',
+					position: 'bottom',
+					content: $this.find('.fpd-tooltip-content'),
+					theme: 'fpd-sub-tooltip-theme fpd-zoom-tooltip',
+					touchDevices: false,
+					interactive: true,
+					//autoClose: false,
+					functionReady: function(origin, tooltip) {
+
+						var startVal = fpdInstance.currentViewInstance.stage.getZoom() / fpdInstance.currentViewInstance.responsiveScale;
+
+						tooltip.find('.fpd-zoom-slider').attr('step', fpdInstance.mainOptions.zoomStep).attr('max', fpdInstance.mainOptions.maxZoom)
+						.val(startVal).rangeslider({
+							polyfill: false,
+							rangeClass: 'fpd-range-slider',
+							disabledClass: 'fpd-range-slider--disabled',
+							horizontalClass: 'fpd-range-slider--horizontal',
+						    verticalClass: 'fpd-range-slider--vertical',
+						    fillClass: 'fpd-range-slider__fill',
+						    handleClass: 'fpd-range-slider__handle',
+						    onSlide: function(pos, value) {
+								fpdInstance.setZoom(value);
+						    }
+						});
+
+						tooltip.find('.fpd-stage-pan').click(function() {
+
+							fpdInstance.currentViewInstance.dragStage = fpdInstance.currentViewInstance.dragStage ? false : true;
+							$(this).toggleClass('fpd-enabled');
+							fpdInstance.$productStage.toggleClass('fpd-drag');
+
+						}).toggleClass('fpd-enabled', fpdInstance.currentViewInstance.dragStage);
+
+					},
+					functionAfter: function(origin) {
+
+						origin.removeClass('fpd-active')
+						.tooltipster('destroy');
+
+						origin.attr('title', origin.data('defaulttext'))
+						.tooltipster({
+							offsetY: 0,
+							position: 'bottom',
+							theme: '.fpd-tooltip-theme',
+							touchDevices: false,
+						});
+
+					}
+				});
+
+				$this.tooltipster('show');
+
+			}
+
+			$this.toggleClass('fpd-active');
+
+		}
+		else if(action === 'download') {
+
+			if(!$this.hasClass('fpd-active')) {
+
+				if($this.hasClass('tooltipstered')) {
+					$this.tooltipster('destroy');
+				}
+
+				$this.tooltipster({
+					trigger: 'click',
+					position: 'bottom',
+					content: $this.find('.fpd-tooltip-content'),
+					theme: 'fpd-sub-tooltip-theme',
+					touchDevices: false,
+					functionReady: function(origin, tooltip) {
+
+						tooltip.find('.fpd-item').click(function() {
+							instance.downloadFile($(this).data('value'))
+						});
+
+					},
+					functionAfter: function(origin) {
+
+						origin.removeClass('fpd-active')
+						.tooltipster('destroy');
+
+						origin.attr('title', origin.data('defaulttext'))
+						.tooltipster({
+							offsetY: 0,
+							position: 'bottom',
+							theme: '.fpd-tooltip-theme',
+							touchDevices: false,
+						});
+
+					}
+				});
+
+				$this.tooltipster('show');
+
+			}
+
+			$this.toggleClass('fpd-active');
+
+		}
+		else if(action === 'magnify-glass') {
+
+			fpdInstance.resetZoom();
+
+			if($this.hasClass('fpd-active')) {
+
+				$(".fpd-zoom-image,.zoomContainer").remove();
+				fpdInstance.$productStage.children('.fpd-view-stage').eq(fpdInstance.currentViewIndex).removeClass('fpd-hidden');
+
+			}
+			else {
+
+				fpdInstance.toggleSpinner();
+
+				var scaling = Number(2000 / fpdInstance.currentViewInstance.options.stageWidth).toFixed(2);
+					dataURL = fpdInstance.currentViewInstance.stage.toDataURL({multiplier: scaling, format: 'png'});
+
+				fpdInstance.$productStage.append('<img src="'+dataURL+'" class="fpd-zoom-image" />')
+				.children('.fpd-zoom-image').elevateZoom({
+					scrollZoom: true,
+					borderSize: 1,
+					zoomType: "lens",
+					lensShape: "round",
+					lensSize: 200,
+					responsive: true
+				}).load(function() {
+					fpdInstance.toggleSpinner(false);
+				});
+
+				fpdInstance.$productStage.children('.fpd-view-stage').addClass('fpd-hidden');
+
+			}
+
+			$this.toggleClass('fpd-active');
+
+		}
+		else if(action === 'ruler') {
+
+			if($this.hasClass('fpd-active')) {
+
+				var rulerHor = fpdInstance.currentViewInstance.getElementByID('_ruler_hor');
+				if(rulerHor) {
+					fpdInstance.currentViewInstance.stage.remove(rulerHor);
+				}
+
+				var rulerVer = fpdInstance.currentViewInstance.getElementByID('_ruler_ver');
+				if(rulerVer) {
+					fpdInstance.currentViewInstance.stage.remove(rulerVer);
+				}
+
+			}
+			else {
+
+				var pixelUnitsOptions = {
+					fill: '#979797',
+					fontSize: 10,
+					fontFamily: 'Arial'
+				};
+
+				fabric.util.loadImage(FPDActions.rulerHorImg, function (img) {
+
+					var groupRulerHor = new fabric.Group([], {
+						left: 0,
+						top: 0,
+						originX: 'left',
+						originY: 'top',
+						evented: false,
+						selectable: false,
+						id: '_ruler_hor'
+					});
+
+					var rect = new fabric.Rect({
+					    width: fpdInstance.currentViewInstance.options.stageWidth,
+					    height: 30
+					});
+
+					rect.setPatternFill({
+				        source: img,
+				        repeat: 'repeat-x'
+				    });
+
+				    groupRulerHor.addWithUpdate(rect);
+
+					var loopX = Math.ceil(fpdInstance.currentViewInstance.options.stageWidth / 100);
+				    for(var i=1; i < loopX; ++i) {
+					    var text = new fabric.Text(String(i*100), $.extend({}, pixelUnitsOptions, {top: 3, left: (i*100)+3}));
+					    groupRulerHor.addWithUpdate(text);
+					}
+
+					fpdInstance.currentViewInstance.stage.add(groupRulerHor).renderAll();
+
+				});
+
+				fabric.util.loadImage(FPDActions.rulerVerImg, function (img) {
+
+					var groupRulerVer = new fabric.Group([], {
+						left: 0,
+						top: 0,
+						originX: 'left',
+						originY: 'top',
+						evented: false,
+						selectable: false,
+						id: '_ruler_ver'
+					});
+
+					var rect = new fabric.Rect({
+					    width: 30,
+					    height: fpdInstance.currentViewInstance.options.stageHeight
+					});
+
+					rect.setPatternFill({
+				        source: img,
+				        repeat: 'repeat-y'
+				    });
+
+				    groupRulerVer.addWithUpdate(rect);
+
+					var loopX = Math.ceil(fpdInstance.currentViewInstance.options.stageWidth / 100);
+				    for(var i=1; i < loopX; ++i) {
+					    var text = new fabric.Text(String(i*100), $.extend({}, pixelUnitsOptions, {
+						    top: (i*100)+3,
+						    left: 12,
+						    angle: 90,
+						    originY: 'bottom'})
+						);
+					    groupRulerVer.addWithUpdate(text);
+					}
+
+					fpdInstance.currentViewInstance.stage.add(groupRulerVer).renderAll();
+
+				});
+
+			}
+
+			$this.toggleClass('fpd-active');
+
+		}
+
+	};
+
 	this.resetAllActions = function() {
 
 		$(".fpd-zoom-image,.zoomContainer").remove();
@@ -6052,151 +6645,14 @@ FPDActions.availableActions = [
 	'zoom',
 	'download',
 	'magnify-glass',
-	'preview-lightbox'
+	'preview-lightbox',
+	'ruler'
 ];
 
-var FPDStageOffCanvas = function(fpdInstance, $stageOffCanvas, $modules) {
+FPDActions.rulerHorImg = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAAAeCAYAAADaW7vzAAAAAXNSR0IArs4c6QAAAMtJREFUaAXt0bENAkEMBVGgJVranja5lq4myH50wUr+wQRDZCHWWPPee+/fdV33yw+iwAdxhUekgCBJwRgEYTjkCkGSgjEIwnDIFYIkBWMQhOGQKwRJCsYgCMMhVwiSFIxBEIZDrhAkKRiDIAyHXCFIUjAGQRgOuUKQpGAMgjAccoUgScEYjkHWWt+Tk/3dc6XTLscgz3/jt+0CgrSLDvcJMgzYfi5Iu+hwnyDDgO3ngrSLDvcJMgzYfi5Iu+hwnyDDgO3ngrSLDvf9ARH1Efg/D4CQAAAAAElFTkSuQmCC';
 
-	var instance = this,
-		modules = ['images', 'text', 'designs'],
-		$uploadZoneAddsPanel = null;
+FPDActions.rulerVerImg = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAABkCAYAAACRiYAFAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgIDwvcmRmOkRlc2NyaXB0aW9uPgogICA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgpMwidZAAAA40lEQVRoBe2UwQ3CUBTD+KzUYXvpSHQmECzgIlk8CbnXRonqvGZt2/a4DTz3gcxPZME/Ix/q/0e99n1/Xv3M4zjOq1rSrZaLEFnv+48tkugTakRkCVouiyT6dNWIyBKE2iKJPmOoWy7sxhKMdVywVSH6hBoRWYKWyyKJPl01IrIEobZIos8Y6pYLu7EEYx0XbFWIPqFGRJag5bJIok9XjYgsQagtkugzhrrlwm4swVjHBVsVok+oEZElaLkskujTVSMiSxBqiyT6jKFuubAbSzDWccFWhegTakRkCb5aLiv07fMCuAVB+Jp9DBgAAAAASUVORK5CYII=';
 
-	fpdInstance.$mainWrapper.append($stageOffCanvas);
-
-	this.$container = $stageOffCanvas;
-
-	var _initialize = function() {
-
-		$uploadZoneAddsPanel = $stageOffCanvas.find('.fpd-upload-zone-adds-panel');
-
-		var touchStart = 0,
-			panX = 0;
-		$stageOffCanvas.on('touchstart', function(evt) {
-
-			touchStart = evt.originalEvent.touches[0].pageX;
-
-		})
-		.on('touchmove', function(evt) {
-
-			evt.preventDefault();
-
-			var moveX = evt.originalEvent.touches[0].pageX;
-			panX = touchStart-moveX;
-			panX = panX > 0 ? 0 : panX;
-
-			$stageOffCanvas.css('right', panX);
-
-		})
-		.on('touchend', function(evt) {
-
-			if(panX < -100) {
-				$stageOffCanvas.removeAttr('style').removeClass('fpd-show');
-			}
-			else {
-				$stageOffCanvas.css('right', 0);
-			}
-
-		});
-
-		$stageOffCanvas.on('click', '.fpd-close-stage-off-canvas', function() {
-
-			instance.toggle(false);
-
-		});
-
-		$stageOffCanvas.find('.fpd-off-canvas-nav > div').click(function() {
-
-			var $this = $(this);
-
-			$this.addClass('fpd-active').siblings().removeClass('fpd-active');
-			var $selectedModule = $stageOffCanvas.find('.fpd-off-canvas-content').children('[data-module="'+$this.data('module')+'"]').addClass('fpd-active');
-			$selectedModule.siblings().removeClass('fpd-active');
-
-			//short timeout, because fpd-grid must be visible
-			setTimeout(function() {
-				FPDUtil.refreshLazyLoad($selectedModule.find('.fpd-grid'), false);
-			}, 10);
-
-
-		});
-
-		//add selected modules
-		for(var i=0; i < modules.length; ++i) {
-
-			var module = modules[i],
-				$module = $modules.children('[data-module="'+module+'"]'),
-				$moduleClone = $module.clone();
-
-			$uploadZoneAddsPanel.children('.fpd-off-canvas-content').append($moduleClone);
-
-			if(module === 'text') {
-				new TextModule(fpdInstance, $moduleClone);
-			}
-			else if(module === 'designs') {
-				new DesignsModule(fpdInstance, $moduleClone);
-			}
-			else if(module === 'images') {
-				new ImagesModule(fpdInstance, $moduleClone);
-			}
-
-		}
-
-	};
-
-	this.showPanel = function(panelContext, show) {
-
-		showHide = typeof showHide === 'undefined' ? false : showHide;
-
-		$stageOffCanvas.children('[data-context="'+panelContext+'"]').show()
-		.siblings('div').hide();
-
-		if(show) {
-			this.toggle(show);
-		}
-
-		if(panelContext === 'upload-zone-adds' && $stageOffCanvas.find('.fpd-off-canvas-nav > .fpd-active').size() === 0) {
-			$stageOffCanvas.find('.fpd-off-canvas-nav > div:visible:first').click();
-		}
-
-	};
-
-	this.toggle = function(showHide) {
-
-		$stageOffCanvas.toggleClass('fpd-show', showHide);
-
-		if(!showHide && fpdInstance.currentViewInstance) {
-			fpdInstance.currentViewInstance.currentUploadZone = null;
-		}
-
-		if(!showHide) {
-			$stageOffCanvas.find('.fpd-current-color, .fpd-path-colorpicker').spectrum('destroy');
-		}
-
-	};
-
-	this.toggleUploadZoneAdds = function(customAdds) {
-
-		$uploadZoneAddsPanel.find('.fpd-add-image').toggleClass('fpd-hidden', !Boolean(customAdds.uploads));
-		$uploadZoneAddsPanel.find('.fpd-add-text').toggleClass('fpd-hidden', !Boolean(customAdds.texts));
-		$uploadZoneAddsPanel.find('.fpd-add-design').toggleClass('fpd-hidden', !Boolean(customAdds.designs));
-
-		if(fpdInstance.currentElement.price) {
-			var price = fpdInstance.mainOptions.priceFormat.replace('%d', fpdInstance.currentElement.price);
-			$uploadZoneAddsPanel.find('[data-module="text"] .fpd-btn > .fpd-price').html(' - '+price);
-		}
-		else {
-			$uploadZoneAddsPanel.find('[data-module="text"] .fpd-btn > .fpd-price').html('');
-		}
-
-
-		//select first visible add panel
-		$uploadZoneAddsPanel.find('.fpd-off-canvas-nav > :not(.fpd-hidden)').first().click();
-
-	};
-
-	_initialize();
-
-};
 
 var DesignsModule = function(fpdInstance, $module) {
 
@@ -6211,8 +6667,8 @@ var DesignsModule = function(fpdInstance, $module) {
 
 		if(fpdInstance.$designs.size() > 0) {
 
-			//check if categories are used
-			if(fpdInstance.$designs.filter('.fpd-category').length > 1) {
+			//check if categories are used or first category also includes sub-cats
+			if(fpdInstance.$designs.filter('.fpd-category').length > 1 || fpdInstance.$designs.filter('.fpd-category:first').children('.fpd-category').length > 0) {
 
 				$firstLevelCategories = fpdInstance.$designs.filter('.fpd-category');
 				$currentCategory = fpdInstance.$designs;
@@ -7197,6 +7653,7 @@ var ManageLayersModule = {
 		FPDUtil.createScrollbar($container.find('.fpd-scroll-area'));
 
 		//sortable layers list
+		var sortDir = 0;
 		$container.find('.fpd-list').sortable({
 			handle: '.fpd-icon-reorder',
 			placeholder: 'fpd-list-row fpd-sortable-placeholder',
@@ -7204,14 +7661,27 @@ var ManageLayersModule = {
 			axis: 'y',
 			containment: 'parent',
 			items: '.fpd-list-row:not(.fpd-locked)',
+			start: function(evt, ui) {
+				sortDir = ui.originalPosition.top;
+			},
 			change: function(evt, ui) {
 
 				var targetElement = fpdInstance.getElementByID(ui.item.attr('id')),
-					index = $container.find( ".fpd-list-row:not(.ui-sortable-helper)" ).index(ui.placeholder);
+					relatedItem;
 
-				index = index === 0 ? 0 : index+2;
+				if(ui.position.top > sortDir) { //down
+					relatedItem = ui.placeholder.prevAll(".fpd-list-row:not(.ui-sortable-helper)").first();
+				}
+				else { //up
+					relatedItem = ui.placeholder.nextAll(".fpd-list-row:not(.ui-sortable-helper)").first();
+				}
+
+				var fabricElem = fpdInstance.currentViewInstance.getElementByID(relatedItem.attr('id')),
+					index = fpdInstance.currentViewInstance.getZIndex(fabricElem);
+
 				fpdInstance.setElementParameters({z: index}, targetElement);
 
+				sortDir = ui.position.top;
 
 			}
 		});
@@ -7564,13 +8034,6 @@ var FancyProductDesigner = function(elem, opts) {
 	 */
 	this.$productStage = null;
 	/**
-	 * FPDStageOffCanvas instance.
-	 *
-	 * @property stageOffCanvas
-	 * @type Object
-	 */
-	this.stageOffCanvas = null;
-	/**
 	 * jQuery object pointing on the tooltip for the current selected element.
 	 *
 	 * @property $elementTooltip
@@ -7687,17 +8150,28 @@ var FancyProductDesigner = function(elem, opts) {
 				}
 
 				//auto-select
+				var autoSelectElement = null;
 				if(!modalProductDesignerOnceOpened && !instance.mainOptions.editorMode && instance.currentViewInstance) {
 					var viewElements = instance.currentViewInstance.stage.getObjects();
 					for(var i=0; i < viewElements.length; ++i) {
 						var obj = viewElements[i];
 
 						 if(obj.autoSelect && !obj.hasUploadZone) {
-						 	instance.currentViewInstance.stage.setActiveObject(obj);
+							 autoSelectElement = obj;
+
 						 }
 
 					}
 				}
+
+				setTimeout(function() {
+
+					if(autoSelectElement) {
+						instance.currentViewInstance.stage.setActiveObject(autoSelectElement);
+						instance.currentViewInstance.stage.renderAll();
+					}
+
+				}, 300);
 
 				modalProductDesignerOnceOpened = true;
 
@@ -7869,6 +8343,10 @@ var FancyProductDesigner = function(elem, opts) {
 				instance.currentViewInstance.resetCanvasSize();
 			}
 
+			if(instance.$container.filter('[class*="fpd-off-canvas-"]').size() > 0) {
+				instance.mainBar.$content.height(instance.$mainWrapper.height());
+			}
+
 		});
 
 		//check if categories are used
@@ -7947,13 +8425,6 @@ var FancyProductDesigner = function(elem, opts) {
 
 			});
 
-			//init Stage Off Canvas
-			instance.stageOffCanvas = new FPDStageOffCanvas(
-				instance,
-				$uiElements.children('.fpd-stage-off-canvas'),
-				$modules
-			);
-
 			//add modules
 			if(options.mainBarModules) {
 
@@ -7974,35 +8445,40 @@ var FancyProductDesigner = function(elem, opts) {
 			}
 
 			//init Toolbar
-			var uiToolbar = new FPDToolbar($uiElements.children('.fpd-element-toolbar'), instance);
+			instance.toolbar = new FPDToolbar($uiElements.children('.fpd-element-toolbar'), instance);
 
 			$elem.on('elementSelect', function(evt, element) {
 
 				if(element && instance.currentViewInstance) {
 
-					if((element.uploadZone && element.opacity) && !instance.mainOptions.editorMode) {
+					//upload zone is selected
+					if(element.uploadZone && !instance.mainOptions.editorMode) {
 
 						element.set('borderColor', 'transparent');
 
 						var customAdds = $.extend({}, instance.currentViewInstance.options.customAdds, element.customAdds ? element.customAdds : {});
-						instance.stageOffCanvas.toggleUploadZoneAdds(customAdds);
-						instance.stageOffCanvas.showPanel('upload-zone-adds', true);
+
+						instance.mainBar.toggleUploadZoneAdds(customAdds);
+						instance.mainBar.toggleUploadZonePanel();
 						instance.currentViewInstance.currentUploadZone = element.title;
-						uiToolbar.toggle(false);
 
 						return;
 					}
-					else {
-						//instance.stageOffCanvas.toggle(false);
+					//if element has no upload zone and an upload zone is selected, close dialogs and call first module
+					else if(instance.currentViewInstance.currentUploadZone) {
+
+						instance.mainBar.toggleDialog(false);
+						instance.mainBar.toggleUploadZonePanel(false);
+
 					}
 
-					uiToolbar.update(element);
+					instance.toolbar.update(element);
 					_updateEditorBox(element);
 
 				}
 				else {
 
-					uiToolbar.toggle(false);
+					instance.toolbar.toggle(false);
 					$body.children('.fpd-element-toolbar').find('input').spectrum('destroy');
 
 				}
@@ -8010,31 +8486,31 @@ var FancyProductDesigner = function(elem, opts) {
 			})
 			.on('elementChange', function(evt, type, element) {
 
-				uiToolbar.toggle(false);
+				instance.toolbar.toggle(false);
 
 			})
 			.on('elementModify', function(evt, element, parameters) {
 
-				if(instance.productCreated && !uiToolbar.isTransforming) {
+				if(instance.productCreated && !instance.toolbar.isTransforming) {
 
 					if(parameters.fontSize !== undefined) {
-						uiToolbar.updateUIValue('fontSize', Number(parameters.fontSize));
+						instance.toolbar.updateUIValue('fontSize', Number(parameters.fontSize));
 					}
 					if(parameters.scaleX !== undefined) {
-						uiToolbar.updateUIValue('scaleX', Number(parameters.scaleX).toFixed(2));
+						instance.toolbar.updateUIValue('scaleX', parseFloat(Number(parameters.scaleX).toFixed(2)));
 					}
 					if(parameters.scaleY !== undefined) {
-						uiToolbar.updateUIValue('scaleY', Number(parameters.scaleY).toFixed(2));
+						instance.toolbar.updateUIValue('scaleY', parseFloat(Number(parameters.scaleY).toFixed(2)));
 					}
 					if(parameters.angle !== undefined) {
-						uiToolbar.updateUIValue('angle', parseInt(parameters.angle));
+						instance.toolbar.updateUIValue('angle', parseInt(parameters.angle));
 					}
 					if(parameters.text !== undefined) {
-						uiToolbar.updateUIValue('text', parameters.text);
+						instance.toolbar.updateUIValue('text', parameters.text);
 					}
 
-					if(instance.currentElement) {
-						uiToolbar.updatePosition(instance.currentElement);
+					if(instance.currentElement && !instance.currentElement.uploadZone) {
+						instance.toolbar.updatePosition(instance.currentElement);
 					}
 
 				}
@@ -8059,6 +8535,11 @@ var FancyProductDesigner = function(elem, opts) {
 					function _onTextModeChanged(evt, textElement) {
 						instance.currentViewInstance.stage.setActiveObject(textElement);
 						$elem.off('elementAdd', _onTextModeChanged);
+
+						setTimeout(function() {
+							$('.fpd-tool-curved-text').click();
+						}, 100);
+
 					};
 					$elem.on('elementAdd', _onTextModeChanged);
 
@@ -8129,25 +8610,18 @@ var FancyProductDesigner = function(elem, opts) {
 
 		$body.on('mouseup touchend', function(evt) {
 
-			var $target = $(evt.target),
-				allowedZones = '.fpd-main-wrapper, .fpd-element-toolbar, .sp-container, .fpd-stage-off-canvas';
+			var $target = $(evt.target);
 
 			//deselect element if click outside of a fpd-container
-			if(!$target.hasClass('fpd-container') && $target.parents('.fpd-container').length === 0 &&
-			   !$target.hasClass('fpd-element-toolbar') && $target.parents('.fpd-element-toolbar').length === 0 &&
-			   instance.mainOptions.deselectActiveOnOutside && $target.parents('.sp-container').length === 0) {
+			if($target.closest('.fpd-container, .fpd-element-toolbar, .sp-container').length === 0 &&
+			   instance.mainOptions.deselectActiveOnOutside) {
 				   instance.deselectElement();
 			}
 
-		});
-
-		//sub-nav in off canvas
-		$elem.on('click', '.fpd-off-canvas-upload-zone > .fpd-off-canvas-nav > div', function() {
-
-			var $this = $(this),
-				module = $this.data('module');
-
-			$this.addClass('fpd-active').siblings().removeClass('fpd-active');
+			//close upload zone panel if click outside of fpd-container, needed otherwise elements can be added to upload zone e.g. mspc
+			if($target.closest('.fpd-container').length === 0 && instance.currentViewInstance && instance.currentViewInstance.currentUploadZone) {
+				instance.mainBar.toggleUploadZonePanel(false);
+			}
 
 		});
 
@@ -8173,7 +8647,7 @@ var FancyProductDesigner = function(elem, opts) {
 				if($this.parents('[data-module="images"]:first').size() > 0 && price === null) {
 
 					if(instance.currentViewInstance && instance.currentViewInstance.options.customImageParameters.price) {
-						price = instance.mainOptions.priceFormat.replace('%d', instance.currentViewInstance.options.customImageParameters.price);
+						price = instance.currentViewInstance.options.customImageParameters.price;
 					}
 
 				}
@@ -8186,13 +8660,14 @@ var FancyProductDesigner = function(elem, opts) {
 					}
 
 					if($this.data('parameters') && $this.data('parameters').price && price === null) {
-						price = instance.mainOptions.priceFormat.replace('%d', $this.data('parameters').price);
+						price = $this.data('parameters').price;
 					}
 
 				}
 
 				if(price) {
-					$thumbnailPreview.append('<div class="fpd-preview-price">'+price+'</div>');
+					var priceFormatted = instance.mainOptions.priceFormat.replace('%d', price);
+					$thumbnailPreview.append('<div class="fpd-preview-price">'+priceFormatted+'</div>');
 				}
 
 				$body.append($thumbnailPreview);
@@ -8297,25 +8772,46 @@ var FancyProductDesigner = function(elem, opts) {
 
 	};
 
-	//snap element to center
-	var _snapElement = function(element) {
+	var _snapToGrid = function(element) {
 
 		if($('[data-action="snap"]').hasClass('fpd-active')) {
 
-			var edgedetection = 40,
+			var gridX = instance.mainOptions.snapGridSize[0] ? instance.mainOptions.snapGridSize[0] : 50,
+				gridY = instance.mainOptions.snapGridSize[1] ? instance.mainOptions.snapGridSize[1] : 50,
+				currentPosPoint = element.getPointByOrigin('left', 'top');
+				point = new fabric.Point(element.padding + (Math.round(currentPosPoint.x / gridX) * gridX), element.padding + (Math.round(currentPosPoint.y / gridY) * gridY));
+
+				element.setPositionByOrigin(point, 'left', 'top');
+
+		}
+
+	};
+
+	//snap element to center
+	var _snapToCenter = function(element) {
+
+		if($('[data-action="snap"]').hasClass('fpd-active')) {
+
+			var edgeDetectionX = instance.mainOptions.snapGridSize[0] ? instance.mainOptions.snapGridSize[0] : 50,
+				edgeDetectionY = instance.mainOptions.snapGridSize[1] ? instance.mainOptions.snapGridSize[1] : 50,
 				elementCenter = element.getCenterPoint(),
 				stageCenter = {x: instance.currentViewInstance.options.stageWidth * .5, y: instance.currentViewInstance.options.stageHeight * .5};
 
-			if (Math.abs(elementCenter.x - stageCenter.x) < edgedetection) {
-		       element.left = stageCenter.x;
-		       instance.$mainWrapper.children('.fpd-snap-line-v').css('left', '50%' ).show();
+			if(Math.abs(elementCenter.x - stageCenter.x) < edgeDetectionX) {
+
+				element.setPositionByOrigin(new fabric.Point(stageCenter.x, elementCenter.y), 'center', 'center');
+		       	instance.$mainWrapper.children('.fpd-snap-line-v').css('left', '50%' ).show();
+
 		    }
 		    else {
 			     instance.$mainWrapper.children('.fpd-snap-line-v').hide();
 		    }
-		    if (Math.abs(elementCenter.y - stageCenter.y) < edgedetection) {
-		        element.top = stageCenter.y;
+		    if (Math.abs(elementCenter.y - stageCenter.y) < edgeDetectionY) {
+
+			    elementCenter = element.getCenterPoint();
+				element.setPositionByOrigin(new fabric.Point(elementCenter.x, stageCenter.y), 'center', 'center');
 		        instance.$mainWrapper.children('.fpd-snap-line-h').css('top', '50%' ).show();
+
 		    }
 		    else {
 			    instance.$mainWrapper.children('.fpd-snap-line-h').hide();
@@ -8476,7 +8972,7 @@ var FancyProductDesigner = function(elem, opts) {
 			instance.selectView(0);
 
 			//search for object with auto-select
-			if(!instance.mainOptions.editorMode && instance.currentViewInstance) {
+			if(!instance.mainOptions.editorMode && instance.currentViewInstance && $(instance.currentViewInstance.stage.getElement()).is(':visible')) {
 				var viewElements = instance.currentViewInstance.stage.getObjects(),
 					selectElement = null;
 
@@ -8582,13 +9078,16 @@ var FancyProductDesigner = function(elem, opts) {
 			instance.toggleSpinner(true);
 		}
 
-		instance.productCreated = instance.doUnsavedAlert = productIsCustomized = false;
+		instance.productCreated = productIsCustomized = false;
 
 		if(replaceInitialElements) {
 
 			nonInitials = [];
 			nonInitials = instance.getCustomElements();
 
+		}
+		else {
+			instance.doUnsavedAlert = false;
 		}
 
 		instance.clear();
@@ -8646,7 +9145,12 @@ var FancyProductDesigner = function(elem, opts) {
 					if(object.viewIndex === instance.viewInstances.length) {
 
 						var fpdElement = object.element;
-						viewInstance.stage.add(fpdElement);
+						viewInstance.addElement(
+							FPDUtil.getType(fpdElement.type),
+							fpdElement.source,
+							fpdElement.title,
+							viewInstance.getElementJSON(fpdElement)
+						);
 
 					}
 
@@ -8664,12 +9168,19 @@ var FancyProductDesigner = function(elem, opts) {
 			 */
 			$elem.trigger('viewCreate', [viewInstance]);
 
-		});
+		}, instance.mainOptions.fabricCanvasOptions);
 
 		viewInstance.stage.on({
 
 			'object:moving': function(opts) {
-				_snapElement(opts.target);
+
+				var element = opts.target;
+
+				if(!element.lockMovementX || !element.lockMovementY) {
+					_snapToGrid(element);
+					_snapToCenter(element);
+				}
+
 			}
 
 		});
@@ -8713,6 +9224,14 @@ var FancyProductDesigner = function(elem, opts) {
 				}
 
 			}
+
+			//close dialog and off-canvas on element add
+			if(instance.productCreated && instance.mainOptions.hideDialogOnAdd && instance.$container.hasClass('fpd-topbar') && instance.mainBar) {
+
+				instance.mainBar.toggleDialog(false);
+
+			}
+
 			/**
 			 * Gets fired when an element is added.
 			 *
@@ -8741,10 +9260,6 @@ var FancyProductDesigner = function(elem, opts) {
 			instance.currentElement = element;
 
 			if(element) {
-
-				if(instance.stageOffCanvas && !element.hasUploadZone) {
-					instance.stageOffCanvas.toggle(false);
-				}
 
 			}
 			else {
@@ -8908,10 +9423,22 @@ var FancyProductDesigner = function(elem, opts) {
 		instance.$viewSelectionWrapper.children('div').removeClass('fpd-view-active')
 		.eq(index).addClass('fpd-view-active');
 
-		//delete all undos/redos
+		instance.$mainWrapper.children('.fpd-ruler').remove();
+
 		if(instance.currentViewInstance) {
+			//delete all undos/redos
 			instance.currentViewInstance.undos = [];
 			instance.currentViewInstance.redos = [];
+
+			//remove some objects
+			var removeObjs = ['_snap_lines_group', '_ruler_hor', '_ruler_ver'];
+			for(var i=0; i<removeObjs.length; ++i) {
+				var removeObj = instance.currentViewInstance.getElementByID(removeObjs[i]);
+				if(removeObj) {
+					instance.currentViewInstance.stage.remove(removeObj);
+				}
+			}
+
 		}
 
 		instance.currentViewInstance = instance.viewInstances[instance.currentViewIndex];
@@ -8946,6 +9473,10 @@ var FancyProductDesigner = function(elem, opts) {
 		//reset view canvas size
 		instance.$productStage.width(instance.currentViewInstance.options.stageWidth);
 		instance.currentViewInstance.resetCanvasSize();
+
+		if(instance.$container.filter('[class*="fpd-off-canvas-"]').size() > 0) {
+			instance.mainBar.$content.height(instance.$mainWrapper.height());
+		}
 
 		_toggleUndoRedoBtn(instance.currentViewInstance.undos, instance.currentViewInstance.redos);
 
@@ -9085,7 +9616,11 @@ var FancyProductDesigner = function(elem, opts) {
 		if(instance.viewInstances.length === 0) { callback('') }
 
 		$body.append('<canvas id="fpd-hidden-canvas"></canvas>');
-		var printCanvas = new fabric.Canvas('fpd-hidden-canvas', {containerClass: 'fpd-hidden fpd-hidden-canvas'}),
+
+		var printCanvas = new fabric.Canvas('fpd-hidden-canvas', {
+				containerClass: 'fpd-hidden fpd-hidden-canvas',
+				enableRetinaScaling: true
+			}),
 			viewCount = 0;
 
 		function _addCanvasImage(viewInstance) {
@@ -9102,7 +9637,7 @@ var FancyProductDesigner = function(elem, opts) {
 
 					if(viewCount > 0) {
 						img.setTop(printCanvas.getHeight());
-						printCanvas.setDimensions({height: printCanvas.getHeight() + viewInstance.options.stageHeight});
+						printCanvas.setDimensions({height: (printCanvas.getHeight() + viewInstance.options.stageHeight)});
 					}
 
 					viewCount++;
@@ -9133,12 +9668,13 @@ var FancyProductDesigner = function(elem, opts) {
 	};
 
 	/**
-	 * Creates the views as data URL.
+	 * Gets the views as data URL.
 	 *
 	 * @method getViewsDataURL
 	 * @param {Function} callback A function that will be called when the data URL is created. The function receives the data URL.
 	 * @param {string} [backgroundColor=transparent] The background color as hexadecimal value. For 'png' you can also use 'transparent'.
 	 * @param {string} [options] See fabricjs documentation http://fabricjs.com/docs/fabric.Canvas.html#toDataURL.
+	 * @return {array} An array with all views as data URLs.
 	 */
 	this.getViewsDataURL = function(callback, backgroundColor, options) {
 
@@ -9595,6 +10131,7 @@ var FancyProductDesigner = function(elem, opts) {
 			var imageH = this.height,
 				imageW = this.width,
 				currentCustomImageParameters = instance.currentViewInstance.options.customImageParameters,
+				imageParts = this.src.split('.'),
 				scaling = 1;
 
 			if(!FPDUtil.checkImageDimensions(instance, imageW, imageH)) {
@@ -9609,14 +10146,25 @@ var FancyProductDesigner = function(elem, opts) {
 				currentCustomImageParameters.resizeToH
 			);
 
+			var fixedParams = {
+				scaleX: scaling,
+				scaleY: scaling,
+				isCustom: true
+			};
+
+			if($.inArray('svg', imageParts) != -1) {
+				fixedParams.colors = true;
+			}
+
     		instance.addElement(
     			'image',
     			source,
     			title,
-	    		$.extend({}, currentCustomImageParameters, {scaleX: scaling, scaleY: scaling, isCustom: true})
+	    		$.extend({}, currentCustomImageParameters, fixedParams)
     		);
 
     		instance.toggleSpinner(false);
+    		FPDUtil.showMessage(instance.getTranslation('misc', 'image_added'));
 
 		}
 
@@ -9645,6 +10193,10 @@ var FancyProductDesigner = function(elem, opts) {
 			instance.viewInstances[i].options.stageHeight = height;
 			instance.viewInstances[i].resetCanvasSize();
 
+		}
+
+		if(instance.$container.filter('[class*="fpd-off-canvas-"]').size() > 0) {
+			instance.mainBar.$content.height(instance.$mainWrapper.height());
 		}
 
 	};
