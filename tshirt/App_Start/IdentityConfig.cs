@@ -39,7 +39,7 @@ namespace tshirt.Web
 
         public static ApplicationUserManager Create(IdentityFactoryOptions<ApplicationUserManager> options, IOwinContext context) 
         {
-            var manager = new ApplicationUserManager(new UserStore<ApplicationUser>(context.Get<TshirtContext>()));
+            var manager = new ApplicationUserManager(new UserStore<ApplicationUser>(context.Get<EscortContext>()));
             // Configure validation logic for usernames
             manager.UserValidator = new UserValidator<ApplicationUser>(manager)
             {

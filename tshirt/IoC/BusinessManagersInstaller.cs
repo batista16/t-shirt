@@ -1,7 +1,6 @@
 ﻿using Castle.MicroKernel.Registration;
 using Castle.MicroKernel.SubSystems.Configuration;
 using Castle.Windsor;
-using tshirt.BusinessManagers.Tshirt;
 
 namespace tshirt.Web.IoC
 {
@@ -9,9 +8,9 @@ namespace tshirt.Web.IoC
     {
         public void Install(IWindsorContainer container, IConfigurationStore store)
         {
-            container.Register(Component.For<ITshitBusinessManager>()
-                .ImplementedBy<TshirtBusinessManager>()
-                .LifestyleSingleton());
+            //container.Register(Component.For<ITshitBusinessManager>()
+            //    .ImplementedBy<TshirtBusinessManager>()
+            //    .LifestyleSingleton());
         }
     }
 }
